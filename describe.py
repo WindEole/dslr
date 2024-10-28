@@ -30,6 +30,8 @@ def percentile(rank: float, val: pd.Series, count: float) -> float:
     param rank - a float value from 0.0 to 100.0
     param val - data (must be sorted)
     return - the percentile of the values.
+    Explication percentile : En-dessous de la valeur retournée se trouvent
+    25%, 50% ou 75% des observations.
     """
     if count == 0:  # cas où la série est vide
         return None
@@ -44,13 +46,12 @@ def percentile(rank: float, val: pd.Series, count: float) -> float:
     index_high = min(index_low + 1, count - 1)  # Entier sup ou max index
 
     # Calculer une interpolation si nécessaire
-    weight_high = perc_rank - index_low  # Pourcentage pour la valeur haute
-    weight_low = 1 - weight_high  # Pourcentage pour la valeur basse
+    high = perc_rank - index_low  # Pourcentage pour la valeur haute
+    low = 1 - high  # Pourcentage pour la valeur basse
 
     # Calculer le percentile en pondérant les valeurs inférieure et supérieure
-    return round(sort_val.iloc[index_low] * weight_low + sort_val.iloc[index_high] * weight_high, 6)
+    return sort_val.iloc[index_low] * low + sort_val.iloc[index_high] * high
 
-    # return sort_val.iloc[index]
 
 def minimum(val: pd.Series) -> float:
     """Determine the minimum value of a dataset."""
@@ -79,7 +80,6 @@ def moyenne(val: pd.Series, count: float) -> float:
     """Calculate the mean of all values."""
     if not val.empty:
         return sum(val) / count
-        # return round(mean, 6)
     return None
 
 
@@ -138,10 +138,12 @@ def ft_describe(data: pd.DataFrame) -> None:
     # 1) COUNT = nb d'observations non nulles
     count_values = {}
     for column in num_data.columns:
-        non_null_count = sum(1 for value in num_data[column] if not pd.isnull(value))
+        non_null_count = sum(
+            1 for value in num_data[column] if not pd.isna(value)
+        )
         count_values[column] = non_null_count
 
-    # 2) MEAN / STD / MIN / MAX
+    # 2) MEAN / STD / MIN / PERCENTILES / MAX
     mean_values = {}
     std_values = {}
     min_values = {}
@@ -152,24 +154,15 @@ def ft_describe(data: pd.DataFrame) -> None:
     for col in num_data.columns:
         # Exclure les valeurs nulles pour le calcul du min
         non_null_values = num_data[~num_data[col].isna()][col]
-        # non_null_values = [value for value in num_data[column] if not pd.isnull(value)]
         mean_values[col] = moyenne(non_null_values, count_values[col])
-        std_values[col] = standard_deviation(non_null_values, mean_values[col], count_values[col])
+        std_values[col] = standard_deviation(
+            non_null_values, mean_values[col], count_values[col],
+        )
         min_values[col] = minimum(non_null_values)
         perc_25[col] = percentile(25, non_null_values, count_values[col])
         perc_50[col] = percentile(50, non_null_values, count_values[col])
         perc_75[col] = percentile(75, non_null_values, count_values[col])
         max_values[col] = maximum(non_null_values)
-
-    # 5) STD -> Standard deviation (= écart-type) EN COURS !!!!
-    # std_values = {}
-    # for column in num_data.columns:
-    #     # Exclure les valeurs nulles pour le calcul du max
-    #     non_null_values = [value for value in num_data[column] if not pd.isnull(value)]
-    #     if non_null_values:
-    #         mean = mean_values[column]
-    #     else:
-    #         std_values[column] = None
 
     # IMPRESSION FINALE -------------------------------------------------------
     print("\033[91m\nCi-dessous : ma fonction ft_describe :\033[0m")
@@ -196,9 +189,6 @@ def ft_describe(data: pd.DataFrame) -> None:
 
     # Largeur de l'index pour les statistiques
     index_col_width = max(len(stat) for stat in stats_headers) + 2
-
-    # Calculer la largeur totale requise pour toutes les colonnes
-    # total_width = index_col_width + sum(column_widths[col] + 2 for col in num_data.columns)
 
     # Si la largeur dépasse celle du terminal, diviser en blocs
     col_per_block = []
@@ -240,76 +230,7 @@ def ft_describe(data: pd.DataFrame) -> None:
                     row += f"{value}".rjust(column_widths[col] + 2)
             print(row)
 
-# SAUVEGARDE AFFICHAGE ---------------------------------------------
-    # # Ajoutez d'autres statistiques ici
-    # stats_headers = ['count', 'min', 'max', 'mean']
-
-    # # Créez un dictionnaire contenant chaque statistique avec les valeurs pour chaque colonne
-    # stats_data = {
-    #     'count': count_values,
-    #     'mean': mean_values,
-    #     'min': min_values,
-    #     'max': max_values,
-    # }
-
-    # # Calculer les largeurs de colonnes dynamiquement
-    # column_widths = {}
-    # for col in num_data.columns:
-    #     # Trouver la longueur maximale entre le nom de la colonne et les valeurs dans `stats_data`
-    #     max_width = max(len(str(col)), *(len(f"{stats_data[stat].get(col, 'N/A'):.6f}") if isinstance(stats_data[stat].get(col), (int, float)) else len('N/A') for stat in stats_headers))
-    #     column_widths[col] = max_width
-
-    # # Largeur max de la première colonne (pour les noms des statistiques)
-    # index_col_width = max(len(stat) for stat in stats_headers) + 2
-
-    # # Imprimer les en-têtes de colonnes
-    # header = f"{'':<{index_col_width}}"  # Colonne d'index vide pour les noms des statistiques
-    # for col in num_data.columns:
-    #     # header += f"{col:<15}"  # Ajuster la largeur des colonnes de données
-    #     header += f"{col:<{column_widths[col] + 2}}"  # Ajustement dynamique + espacement
-    # print(header)
-
-    # # Imprimer les valeurs pour chaque statistique
-    # for stat in stats_headers:
-    #     row = f"{stat:<{index_col_width}}"  # Nom de la statistique (index)
-    #     for col in num_data.columns:
-    #         value = stats_data[stat].get(col, 'N/A')
-    #         # affichage avec 6 décimales et trailing 0 sinon N/A
-    #         if isinstance(value, (int, float)):
-    #             row += f"{value:.6f}".rjust(column_widths[col] + 2)
-    #         else:
-    #             row += f"{'N/A':<{column_widths[col] + 2}}"
-    #     print(row)
-
-
-# SAUVEGARDE ANCIEN AFFICHAGE------------------
-    # # Déterminer la largeur max de la colonne d'index
-    # index_col_width = max(len(col) for col in num_data.columns) + 2
-
-    # # Imprimer les en-tête de colonne (statistiques : count, min, etc...)
-    # header = f"{'':<{index_col_width}}"  # Colonne d'index (statistiques)
-    # for stat in stats_headers:
-    #     header += f"{stat:<15}"
-    # print(header)
-
-    # # Imprimer chaque colonne du DataFrame avec ses statistiques
-    # for col in num_data.columns:
-    #     row = f"{col:<{index_col_width}}"  # Ajustement de la colonne d'index
-    #     row += f"{count_values[col]:<15}"
-    #     if min_values[col] is not None:
-    #         row += f"{min_values[col]:<15}"
-    #     else:
-    #         row += f"{'N/A':<15}"
-    #     if max_values[col] is not None:
-    #         row += f"{max_values[col]:<15}"
-    #     else:
-    #         row += f"{'N/A':<15}"
-    #     if mean_values[col] is not None:
-    #         row += f"{mean_values[col]:<15}"
-    #     else:
-    #         row += f"{'N/A':<15}"
-    #     print(row)
-# SAUVEGARDE ANCIEN AFFICHAGE------------------
+    print(f"\n[{len(stats_headers)} rows x {len(num_data.columns)} columns]")
 
 
 def load(path: str) -> pd.DataFrame:
