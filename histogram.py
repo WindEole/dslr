@@ -12,6 +12,7 @@ import tarfile
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
 
 def close_on_enter(event: any) -> None:
@@ -21,13 +22,7 @@ def close_on_enter(event: any) -> None:
 
 def viz_histogram(data: pd.DataFrame) -> None:
     """Représente les données sous forme d'histogramme."""
-    # Dictionnaire des maisons et leurs couleurs
-    house_colors = {
-        "Gryffindor": "#9B2226",  # Rouge
-        "Hufflepuff": "#FFC300",  # Jaune
-        "Ravenclaw": "#003B5C",   # Bleu
-        "Slytherin": "#009900",   # Vert
-    }
+    # Filtrer pour obtenir uniquement les colonnes de notes
     # On cherche une colonne contenant House, avec des variantes
     house_col = None
     for col in data.columns:
@@ -39,49 +34,107 @@ def viz_histogram(data: pd.DataFrame) -> None:
     if house_col is None:
         raise ValueError("Aucune colonne 'House' n'a éte trouvée")
 
-    # On élague le DataFrame avec seulement les col dont on a besoin
-    # -> les notes
-    note_data = data.select_dtypes(include=["number"])
-    # -> et on ajoute les Maisons
-    filtered_data = pd.concat([data[house_col], note_data], axis=1)
+    # Supposons que les colonnes de notes soient toutes celles qui restent après avoir exclu les infos personnelles
+    subject_columns = [col for col in data.columns if col not in ["Index", house_col, "First Name", "Last Name", "Birthday", "Best Hand", "Arithmancy"]]
 
-    # On regroupe par maison et on fait la moyenne pour chaque matière
-    grouped_data = filtered_data.groupby(house_col).mean()
+    # Créer une nouvelle DataFrame pour les données de chaque maison, en ajoutant une colonne 'Maison' pour différencier
+    melted_data = data.melt(id_vars=[house_col], value_vars=subject_columns,
+                            var_name="Matière", value_name="Note")
 
-    # Normalisation des données
-    normalized_data = (grouped_data - grouped_data.min()) / (grouped_data.max() - grouped_data.min())
+    # Couleurs par maison pour le box plot
+    house_colors = {
+        "Gryffindor": "red",
+        "Slytherin": "green",
+        "Hufflepuff": "yellow",
+        "Ravenclaw": "blue",
+    }
 
-    subjects = normalized_data.columns  # liste des matières
-    n_subjects = len(subjects)  # nb de matières
-    bar_width = 0.2  # largeur des barres
-    x = np.arange(n_subjects)  # position des barres sur l'axe x
+    # Tracer le box plot
+    plt.figure(figsize=(15, 8))
+    sns.boxplot(x="Matière", y="Note", hue=house_col, data=melted_data, palette=house_colors)
 
-    plt.figure(figsize=(12, 6))  # taille du graphique
-
-    # Ajout des barres pour chq maison
-    for i, house in enumerate(house_colors.keys()):
-        plt.bar(x + (i * bar_width),
-                normalized_data.loc[house],
-                bar_width,
-                label=house,
-                color=house_colors[house]
-                )
-
-    # Ajout des étiquettes et du titre
-    plt.xlabel('Subjects')
-    plt.ylabel("Moyenne des notes")
-    plt.title("Moyennes des notes par matière et par maison")
-    # Centrer les étiquettes des matières
-    plt.xticks(x + bar_width * (len(house_colors) - 1) / 2, subjects)
-    plt.legend(title='Houses')
-    # plt.ylim(0, 100)  # A AJUSTER en fct des notes max
-    # Grille pour la visibilité
+    # Ajuster les axes et la légende
+    plt.xlabel("Matières")
+    plt.ylabel("Distribution des notes")
+    plt.title("Distribution des notes par matière et par maison")
+    plt.xticks(rotation=45)  # Rotation des étiquettes pour une meilleure lisibilité
+    plt.legend(title="Maisons")
     plt.grid(axis='y', linestyle='--', alpha=0.7)
-    # Ajuster la mise en page
+
+    # Afficher le graphique
     plt.tight_layout()
     fig = plt.gcf()  # On obtient le graphe en cours
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
     plt.show()
+
+
+
+# ----- HISTOGRAMME ----------------------------------
+    # # Dictionnaire des maisons et leurs couleurs
+    # house_colors = {
+    #     "Gryffindor": "#9B2226",  # Rouge
+    #     "Hufflepuff": "#FFC300",  # Jaune
+    #     "Ravenclaw": "#003B5C",   # Bleu
+    #     "Slytherin": "#009900",   # Vert
+    # }
+    # # On cherche une colonne contenant House, avec des variantes
+    # house_col = None
+    # for col in data.columns:
+    #     if re.search(r'\b(House|Maison)\b', col, re.IGNORECASE):
+    #         house_col = col
+    #         break
+
+    # # Si aucune colonne "House" n'est trouvée, on lève une erreur
+    # if house_col is None:
+    #     raise ValueError("Aucune colonne 'House' n'a éte trouvée")
+
+    # # On élague le DataFrame avec seulement les col dont on a besoin
+    # # -> les notes
+    # note_data = data.select_dtypes(include=["number"])
+    # # -> et on ajoute les Maisons
+    # filtered_data = pd.concat([data[house_col], note_data], axis=1)
+
+    # # On regroupe par maison et on fait la moyenne pour chaque matière
+    # grouped_data = filtered_data.groupby(house_col).mean()
+
+    # # Normalisation des données
+    # normalized_data = (grouped_data - grouped_data.min()) / (grouped_data.max() - grouped_data.min())
+
+    # subjects = normalized_data.columns  # liste des matières
+    # n_subjects = len(subjects)  # nb de matières
+    # bar_width = 0.2  # largeur des barres
+    # x = np.arange(n_subjects)  # position des barres sur l'axe x
+
+    # plt.figure(figsize=(12, 6))  # taille du graphique
+
+    # # Ajout des barres pour chq maison
+    # for i, house in enumerate(house_colors.keys()):
+    #     plt.bar(x + (i * bar_width),
+    #             normalized_data.loc[house],
+    #             bar_width,
+    #             label=house,
+    #             color=house_colors[house]
+    #             )
+
+    # # On recupere juste le 1er mot de chaque matiere pour les etiquettes
+    # short_subjects = [subjects.split()[0] for subject in subjects]
+
+    # # Ajout des étiquettes et du titre
+    # plt.xlabel('Subjects')
+    # plt.ylabel("Moyenne des notes")
+    # plt.title("Moyennes des notes par matière et par maison")
+    # # Centrer les étiquettes des matières
+    # plt.xticks(x + bar_width * (len(house_colors) - 1) / 2, short_subjects)
+    # plt.legend(title='Houses')
+    # # plt.ylim(0, 100)  # A AJUSTER en fct des notes max
+    # # Grille pour la visibilité
+    # plt.grid(axis='y', linestyle='--', alpha=0.7)
+    # # Ajuster la mise en page
+    # plt.tight_layout()
+    # fig = plt.gcf()  # On obtient le graphe en cours
+    # fig.canvas.mpl_connect("key_press_event", close_on_enter)
+    # plt.show()
+# ----- HISTOGRAMME ----------------------------------
 
 def load(path: str) -> pd.DataFrame:
     """Load a file.csv and return a dataset."""
