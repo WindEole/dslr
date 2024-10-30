@@ -1,7 +1,7 @@
 """Describe program.
 
 Ce programme ouvre un fichier de données compressées au format .tgz et
-les mets en forme suivant plusieurs types de visualisations graphiques.
+génère des statistiques descriptives à partir des données.
 """
 
 import math
@@ -83,7 +83,7 @@ def moyenne(val: pd.Series, count: float) -> float:
     return None
 
 
-def ft_describe(data: pd.DataFrame) -> None:
+def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
     """Reproduit la fonction describe de python.
 
     Cette fonction prend en paramètre un dataframe pandas, et en extrait :
@@ -181,11 +181,43 @@ def ft_describe(data: pd.DataFrame) -> None:
         'max': max_values,
     }
 
+    # ----- AFFICHAGE SUR LE TERMINAL -----------------------------------------
+
     # Récupérer la largeur du terminal
     terminal_width = shutil.get_terminal_size().columns
 
     # Calculer les largeurs de colonnes dynamiquement
-    column_widths = {col: max(len(str(col)), *(len(f"{stats_data[stat].get(col, 'N/A'):.6f}") if isinstance(stats_data[stat].get(col), (int, float)) else len('N/A') for stat in stats_headers)) for col in num_data.columns}
+    # column_widths = {
+    #     col: max(
+    #         len(str(col)),
+    #         *(
+    #             len(f"{stats_data[stat].get(col, 'N/A'):.6f}")
+    #             if isinstance(stats_data[stat].get(col), (int, float))
+    #             else len('N/A')
+    #             for stat in stats_headers
+    #         )
+    #     )
+    #     for col in num_data.columns
+    # }
+    column_widths = {}
+
+    for col in num_data.columns:
+        # Largeur de base : le nom de la colonne
+        max_width = len(str(col))
+
+        # Calcul de la largeur pour chq stat
+        for stat in stats_headers:
+            value = stats_data[stat].get(col, 'N/A')
+            if isinstance(value, (int, float)):
+                width = len(f"{value:.6f}")  # Format 6 décimales
+            else:
+                width = len(str(value))
+
+        # Màj max_width si la largeur de la stat est plus grande
+        max_width = max(max_width, width)
+
+        # Stocker la largeur max trouvée pour cette colonne
+        column_widths[col] = max_width
 
     # Largeur de l'index pour les statistiques
     index_col_width = max(len(stat) for stat in stats_headers) + 2
@@ -231,6 +263,15 @@ def ft_describe(data: pd.DataFrame) -> None:
             print(row)
 
     print(f"\n[{len(stats_headers)} rows x {len(num_data.columns)} columns]")
+
+    # ----- FIN AFFICHAGE SUR LE TERMINAL -------------------------------------
+
+    # enregistrement dans un dataFrame et exportation pour visualisation
+    print(type(stats_data))
+    stats_df = pd.DataFrame(stats_data)
+    stats_df.to_csv("describe_stats.csv")
+    print("Les statistiques ont été sauvegardées dans 'describe_stats.csv")
+
 
 
 def load(path: str) -> pd.DataFrame:
@@ -283,7 +324,7 @@ def find_file(filename: str, dir_path: str):
     :param dir_path: Répertoire où commencer la recherche
     :return: Chemin complet vers le fichier s'il est trouvé, sinon None
     """
-    for root, dirs, files in os.walk(dir_path):
+    for root, dir, files in os.walk(dir_path):
         if filename in files:
             return os.path.join(root, filename)
 
