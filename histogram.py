@@ -12,7 +12,6 @@ import tarfile
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 
 
 def close_on_enter(event: any) -> None:
@@ -20,9 +19,45 @@ def close_on_enter(event: any) -> None:
     if event.key == "enter":  # Si la touche 'Enter' est pressée
         plt.close(event.canvas.figure)  # Ferme la figure associée
 
+
+# def ft_percentile(rank: float, val: pd.Series, count: float) -> float:
+#     """Find the percentile of a serie of values.
+
+#     param rank - a float value from 0.0 to 100.0
+#     param val - data (must be sorted)
+#     return - the percentile of the values.
+#     Explication percentile : En-dessous de la valeur retournée se trouvent
+#     25%, 50% ou 75% des observations.
+#     """
+#     if count == 0:  # cas où la série est vide
+#         return None
+
+#     # préparation des paramètre avant calcul
+#     rank = rank / 100
+#     sort_val = val.sort_values().reset_index(drop=True)  # Trier et réindexer
+
+#     # calcul de l'index percentile (l'index doit rester dans les limites)
+#     perc_rank = rank * (count - 1)
+#     index_low = int(perc_rank)  # Partie entière inférieure
+#     index_high = min(index_low + 1, count - 1)  # Entier sup ou max index
+
+#     # Calculer une interpolation si nécessaire
+#     high = perc_rank - index_low  # Pourcentage pour la valeur haute
+#     low = 1 - high  # Pourcentage pour la valeur basse
+
+#     # Calculer le percentile en pondérant les valeurs inférieure et supérieure
+#     return sort_val.iloc[index_low] * low + sort_val.iloc[index_high] * high
+
+
+def ft_percentile(rank, values):
+    """Calculate the desired percentile for a series of values."""
+    sorted_values = values.sort_values()
+    index = int(rank / 100 * len(values) - 0.5)
+    return sorted_values.iloc[index] if len(values) > 0 else None
+
+
 def viz_histogram(data: pd.DataFrame) -> None:
     """Représente les données sous forme d'histogramme."""
-    # Filtrer pour obtenir uniquement les colonnes de notes
     # On cherche une colonne contenant House, avec des variantes
     house_col = None
     for col in data.columns:
@@ -34,31 +69,138 @@ def viz_histogram(data: pd.DataFrame) -> None:
     if house_col is None:
         raise ValueError("Aucune colonne 'House' n'a éte trouvée")
 
-    # Supposons que les colonnes de notes soient toutes celles qui restent après avoir exclu les infos personnelles
-    subject_columns = [col for col in data.columns if col not in ["Index", house_col, "First Name", "Last Name", "Birthday", "Best Hand", "Arithmancy"]]
+    house_counts = data[house_col].value_counts()
+    print("Effectifs par maison :")
+    print(house_counts)
 
-    # Créer une nouvelle DataFrame pour les données de chaque maison, en ajoutant une colonne 'Maison' pour différencier
-    melted_data = data.melt(id_vars=[house_col], value_vars=subject_columns,
-                            var_name="Matière", value_name="Note")
-
-    # Couleurs par maison pour le box plot
+# ----- HISTOGRAMME ----------------------------------
+    # Dictionnaire des maisons et leurs couleurs
     house_colors = {
-        "Gryffindor": "red",
-        "Slytherin": "green",
-        "Hufflepuff": "yellow",
-        "Ravenclaw": "blue",
+        "Gryffindor": "#CC0000",  # Rouge
+        "Hufflepuff": "#FFCC00",  # Jaune
+        "Ravenclaw": "#000099",   # Bleu
+        "Slytherin": "#009900",   # Vert
     }
 
-    # Tracer le box plot
-    plt.figure(figsize=(15, 8))
-    sns.boxplot(x="Matière", y="Note", hue=house_col, data=melted_data, palette=house_colors)
+    # On élague le DataFrame avec seulement les col dont on a besoin
+    # -> les notes
+    subjects = data.select_dtypes(include=["number"]).drop(["Index"], axis=1, errors='ignore')
+    # -> On Normalise les notes (trop disparates !) min-max
+    subjects_norm = (subjects - subjects.min()) / (subjects.max() - subjects.min())
+    # -> et on ajoute les Maisons
+    filtered_data = pd.concat([data[house_col], subjects_norm], axis=1)
+    print("\nDonnées filtrées et normalisées : \n")
+    print(filtered_data)
 
-    # Ajuster les axes et la légende
-    plt.xlabel("Matières")
-    plt.ylabel("Distribution des notes")
-    plt.title("Distribution des notes par matière et par maison")
-    plt.xticks(rotation=45)  # Rotation des étiquettes pour une meilleure lisibilité
-    plt.legend(title="Maisons")
+    # On regroupe par maison
+    grouped_data = filtered_data.groupby(house_col)
+
+    # Percentile 75 par maison
+    percentiles = []
+    rank = 75
+    for house, house_data in grouped_data:
+        for subject in subjects_norm:
+            non_null_values = house_data[subject].dropna()
+            perc_rank = ft_percentile(rank, non_null_values)
+            percentiles.append({
+                "House": house,
+                "Subject": subject,
+                "Percentile": perc_rank,
+                "Effectif": len(non_null_values),
+                })
+
+    # Créer un DataFrame pour les percentiles
+    perc_data = pd.DataFrame(percentiles)
+    print("\nPercentile data = \n")
+    print(perc_data)
+
+    # Calcul de l'effectif minimum parmi les maisons
+    min_effectif = perc_data["Effectif"].min()
+    print(min_effectif)
+
+    # Création d'une liste des largeurs ajustées (* 0.1 pour ajuster visuelmt)
+    perc_data["Adj_Width"] = (perc_data["Effectif"] - min_effectif + 1) * 0.1
+
+    # Effectifs dispersés -> Normalisation des largeurs de barres !
+    min_width = 0.05  # largeur min
+    max_width = 0.25  # largeur max
+    perc_data["Adj_Width"] = (
+        min_width + (perc_data["Adj_Width"] - perc_data["Adj_Width"].min()) /
+        (perc_data["Adj_Width"].max() - perc_data["Adj_Width"].min()) *
+        (max_width - min_width)
+    )
+
+    # Tracer l'histogramme avec distinction par maison
+    plt.figure(figsize=(18, 10))
+    # bar_width = 0.1  # largeur de base des barres
+    subjects_list = perc_data["Subject"].unique()
+    houses = perc_data["House"].unique()
+
+    # Calcul des positions des barres
+    num_houses = len(houses)
+    bar_widths = perc_data.groupby("House")["Adj_Width"].apply(list).to_dict()
+    positions_base = np.arange(len(subjects_list)) * (1 + max_width)
+
+    # calcul des largeurs max par matière
+    # max_widths_per_subject = [
+    #     perc_data[perc_data["Subject"] == subject]["Adj_Width"].max()
+    #     for subject in subjects_list
+    # ]
+    # calcul des positions de base ajustées avec les largeurs max
+    # positions_base = np.arange(len(subjects_list)) * 1.5  # espacement plus gd
+    # positions_base = np.cumsum([0] + max_widths_per_subject[:-1]) + np.arange(len(subjects_list))
+
+    # Positions de chaque groupe de barres (matières)
+    for i, house in enumerate(houses):
+        house_data = perc_data[perc_data["House"] == house]
+        if house_data.empty:
+            print(f"Aucune donnée pour la maison: {house}")
+            continue  # Passer à l'itération suivante si aucune donnée
+
+        # bar_positions = [pos + i * 0.25 for pos in positions_base]
+
+        # Affichage des informations pour déboguer
+        print(f"\nMaison: {house}")
+        print(f"Nombre de matières: {len(subjects_list)}, Nombre de valeurs: {len(house_data)}")
+
+        # bar_positions = positions_base + (i * (1 + max_width))
+        bar_positions = np.arange(len(subjects_list)) + i * (1 / num_houses)
+
+        # # Initialisation des bar_positions pour chaque maison
+        # bar_positions = positions_base.copy().astype(float)
+        # # Calculer l'offset basé sur les largeurs des barres précédentes
+        # if i > 0:
+        #     # Ajouter les largeurs des barres de la maison précédente
+        #     # prev_house = houses[i - 1]
+        #     prev_house_data = perc_data[perc_data["House"] == houses[i - 1]]
+        #     if prev_house_data.empty:
+        #         print(f"Aucune donnée pour la maison précédente : {house[i - 1]}")
+        #         continue
+        #     # Vérifiez la forme des données avant l'addition
+        #     print(f"previous_house_data['Adj_Width'].values shape: {prev_house_data['Adj_Width'].values.shape}")
+        #     bar_positions += prev_house_data["Adj_Width"].values
+
+        # Extraction des largeurs de barre pour chq matière dans l'ordre
+        house_bar_widths = house_data.set_index("Subject").reindex(subjects_list)["Adj_Width"]
+        print(f"\nMaison = {house}")
+        print(f"largeurs de barre = \n{house_bar_widths}")
+
+        # Tracer la barre pour chaque maison avec des largeurs ajustées
+        plt.bar(
+            bar_positions,
+            house_data["Percentile"],
+            width=house_bar_widths,  # largeur dynamique
+            label=house,
+            color=house_colors[house],
+            edgecolor="black",
+        )
+
+    # Configuration des axes et légende
+    plt.xlabel("Subjects")
+    plt.ylabel(f"{rank}e Percentile des notes")
+    plt.title(f"{rank}e Percentile des notes par matière et par maison")
+    plt.xticks(positions_base + 0.25, [subject.split()[0] for subject in subjects_list], rotation=45)
+    plt.legend(title="House")
     plt.grid(axis='y', linestyle='--', alpha=0.7)
 
     # Afficher le graphique
@@ -68,34 +210,6 @@ def viz_histogram(data: pd.DataFrame) -> None:
     plt.show()
 
 
-
-# ----- HISTOGRAMME ----------------------------------
-    # # Dictionnaire des maisons et leurs couleurs
-    # house_colors = {
-    #     "Gryffindor": "#9B2226",  # Rouge
-    #     "Hufflepuff": "#FFC300",  # Jaune
-    #     "Ravenclaw": "#003B5C",   # Bleu
-    #     "Slytherin": "#009900",   # Vert
-    # }
-    # # On cherche une colonne contenant House, avec des variantes
-    # house_col = None
-    # for col in data.columns:
-    #     if re.search(r'\b(House|Maison)\b', col, re.IGNORECASE):
-    #         house_col = col
-    #         break
-
-    # # Si aucune colonne "House" n'est trouvée, on lève une erreur
-    # if house_col is None:
-    #     raise ValueError("Aucune colonne 'House' n'a éte trouvée")
-
-    # # On élague le DataFrame avec seulement les col dont on a besoin
-    # # -> les notes
-    # note_data = data.select_dtypes(include=["number"])
-    # # -> et on ajoute les Maisons
-    # filtered_data = pd.concat([data[house_col], note_data], axis=1)
-
-    # # On regroupe par maison et on fait la moyenne pour chaque matière
-    # grouped_data = filtered_data.groupby(house_col).mean()
 
     # # Normalisation des données
     # normalized_data = (grouped_data - grouped_data.min()) / (grouped_data.max() - grouped_data.min())
