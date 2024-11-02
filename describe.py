@@ -167,18 +167,18 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
     # IMPRESSION FINALE -------------------------------------------------------
     print("\033[91m\nCi-dessous : ma fonction ft_describe :\033[0m")
     # Ajoutez d'autres statistiques ici
-    stats_headers = ['count', 'mean', 'std', 'min', '25%', '50%', '75%', 'max']
+    stats_headers = ["count", "mean", "std", "min", "25%", "50%", "75%", "max"]
 
     # Dictionnaire contenant chaque stat avec les valeurs pour chaque colonne
     stats_data = {
-        'count': count_values,
-        'mean': mean_values,
-        'std': std_values,
-        'min': min_values,
-        '25%': perc_25,
-        '50%': perc_50,
-        '75%': perc_75,
-        'max': max_values,
+        "count": count_values,
+        "mean": mean_values,
+        "std": std_values,
+        "min": min_values,
+        "25%": perc_25,
+        "50%": perc_50,
+        "75%": perc_75,
+        "max": max_values,
     }
 
     # ----- AFFICHAGE SUR LE TERMINAL -----------------------------------------
@@ -187,27 +187,14 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
     terminal_width = shutil.get_terminal_size().columns
 
     # Calculer les largeurs de colonnes dynamiquement
-    # column_widths = {
-    #     col: max(
-    #         len(str(col)),
-    #         *(
-    #             len(f"{stats_data[stat].get(col, 'N/A'):.6f}")
-    #             if isinstance(stats_data[stat].get(col), (int, float))
-    #             else len('N/A')
-    #             for stat in stats_headers
-    #         )
-    #     )
-    #     for col in num_data.columns
-    # }
     column_widths = {}
-
     for col in num_data.columns:
         # Largeur de base : le nom de la colonne
         max_width = len(str(col))
 
         # Calcul de la largeur pour chq stat
         for stat in stats_headers:
-            value = stats_data[stat].get(col, 'N/A')
+            value = stats_data[stat].get(col, "N/A")
             if isinstance(value, (int, float)):
                 width = len(f"{value:.6f}")  # Format 6 décimales
             else:
@@ -255,7 +242,7 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
         for stat in stats_headers:
             row = f"{stat:<{index_col_width}}"  # Nom de la statistique
             for col in block_columns:
-                value = stats_data[stat].get(col, 'N/A')
+                value = stats_data[stat].get(col, "N/A")
                 if isinstance(value, (int, float)):
                     row += f"{value:.6f}".rjust(column_widths[col] + 2)
                 else:
@@ -270,8 +257,7 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
     print(type(stats_data))
     stats_df = pd.DataFrame(stats_data)
     stats_df.to_csv("describe_stats.csv")
-    print("Les statistiques ont été sauvegardées dans 'describe_stats.csv")
-
+    print("Les statistiques ont été sauvegardées dans 'describe_stats.csv'")
 
 
 def load(path: str) -> pd.DataFrame:

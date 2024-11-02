@@ -49,14 +49,8 @@ def ft_percentile(rank: float, val: pd.Series, count: float) -> float:
     return sort_val.iloc[index_low] * low + sort_val.iloc[index_high] * high
 
 
-# def ft_percentile(rank, values):
-#     """Calculate the desired percentile for a series of values."""
-#     sorted_values = values.sort_values()
-#     index = int(rank / 100 * len(values) - 0.5)
-#     return sorted_values.iloc[index] if len(values) > 0 else None
-
-
-def calcul_perc(grouped_data: pd.DataFrame, subjects_norm: list, rank: int) -> list:
+def calcul_perc(
+        grouped_data: pd.DataFrame, subjects_norm: list, rank: int) -> list:
     """Calculate the percentiles."""
     percentiles = []
     for house, house_data in grouped_data:
@@ -72,12 +66,56 @@ def calcul_perc(grouped_data: pd.DataFrame, subjects_norm: list, rank: int) -> l
                 })
     return percentiles
 
+
+def ft_maximum(val: pd.Series) -> float:
+    """Determine the maximum value of a dataset."""
+    if not val.empty:  # s'il y a des valeurs non-nulles
+        tmp_max = val.iloc[0]  # on initialise avec la première valeur
+        for value in val.iloc[1:]:
+            if value > tmp_max:
+                tmp_max = value
+        return tmp_max
+    return None  # S'il n'y a pas de valeurs non-nulles
+
+
+def ft_minimum(val: pd.Series) -> float:
+    """Determine the minimum value of a dataset."""
+    if not val.empty:  # s'il y a des valeurs non-nulles
+        tmp_min = val.iloc[0]  # on initialise avec la première valeur
+        for value in val.iloc[1:]:
+            if value < tmp_min:
+                tmp_min = value
+        return tmp_min
+    return None  # S'il n'y a pas de valeurs non-nulles
+
+
+def normalize_data(data: pd.DataFrame, house_col: str) -> pd.Series:
+    # On élague le DataFrame avec seulement les col dont on a besoin
+    # -> les notes
+    subjects = data.select_dtypes(include=["number"]).drop(
+        ["Index"],
+        axis=1,
+        errors="ignore")
+    # -> On Normalise les notes (trop disparates !) min-max
+    subjects_min = {}
+    subjects_max = {}
+    for col in subjects.columns:
+        non_null_values = subjects[~subjects[col].isna()][col]
+        subjects_min[col] = ft_minimum(non_null_values)
+        subjects_max[col] = ft_maximum(non_null_values)
+
+    subjects_min_series = pd.Series(subjects_min)
+    subjects_max_series = pd.Series(subjects_max)
+    subjects_norm = (subjects - subjects_min_series) / (subjects_max_series - subjects_min_series)
+    return subjects_norm
+
+
 def viz_histogram(data: pd.DataFrame) -> None:
     """Représente les données sous forme d'histogramme."""
     # On cherche une colonne contenant House, avec des variantes
     house_col = None
     for col in data.columns:
-        if re.search(r'\b(House|Maison)\b', col, re.IGNORECASE):
+        if re.search(r"\b(House|Maison|Houses)\b", col, re.IGNORECASE):
             house_col = col
             break
 
@@ -88,9 +126,7 @@ def viz_histogram(data: pd.DataFrame) -> None:
     house_counts = data[house_col].value_counts()
     print("Effectifs par maison :\n")
     for maison, count in house_counts.items():
-        print(f"{maison}: {count}\n")
-
-# ----- HISTOGRAMME ----------------------------------
+        print(f"{maison}: {count}")
 
     # Dictionnaire des maisons et leurs couleurs
     house_colors = {
@@ -100,16 +136,10 @@ def viz_histogram(data: pd.DataFrame) -> None:
         "Slytherin": "#66FF66",   # Vert
     }
 
-    # On élague le DataFrame avec seulement les col dont on a besoin
-    # -> les notes
-    subjects = data.select_dtypes(include=["number"]).drop(["Index"], axis=1, errors='ignore')
-    # -> On Normalise les notes (trop disparates !) min-max
-    subjects_norm = (subjects - subjects.min()) / (subjects.max() - subjects.min())
-    # -> et on ajoute les Maisons
+    # Normalisation des notes
+    subjects_norm = normalize_data(data, house_col)
+    # On ajoute les Maisons au notes
     filtered_data = pd.concat([data[house_col], subjects_norm], axis=1)
-    # print("\nDonnées filtrées et normalisées : \n")
-    # print(filtered_data)
-
     # On regroupe par maison
     grouped_data = filtered_data.groupby(house_col)
 
@@ -121,12 +151,9 @@ def viz_histogram(data: pd.DataFrame) -> None:
 
     # Créer un DataFrame pour les percentiles
     perc_data = pd.DataFrame(percentiles)
-    # print("\nPercentile data = \n")
-    # print(perc_data)
 
     # Calcul de l'effectif minimum parmi les maisons
     min_effectif = perc_data["Effectif"].min()
-    # print(f"\nEffectif min Maisons et sujets confondus : {min_effectif}")
 
     # Création d'une liste des largeurs ajustées (* 0.1 pour ajuster visuelmt)
     perc_data["Adj_Width"] = (perc_data["Effectif"] - min_effectif + 1) * 0.1
@@ -140,6 +167,7 @@ def viz_histogram(data: pd.DataFrame) -> None:
         (max_width - min_width)
     )
 
+# ----- HISTOGRAMME ----------------------------------
     # Tracer l'histogramme avec distinction par maison
     plt.figure(figsize=(18, 10))
     subjects_list = perc_data["Subject"].unique()
@@ -150,13 +178,8 @@ def viz_histogram(data: pd.DataFrame) -> None:
     # Calcul de la somme des largeurs de barres pour chaque matière
     widths_sum_per_subject = perc_data.groupby("Subject")["Adj_Width"].sum()
 
-    # Affichage des sommes de largeurs pour vérification
-    # print("Somme des largeurs de barres par matière :")
-    # print(widths_sum_per_subject)
-
-    # Calcul des positions de base cumulatives en utilisant les largeurs totales de chaque matière
+    # Calcul des positions de base cumulatives
     positions_base = np.cumsum([0] + widths_sum_per_subject[:-1].tolist())
-
 
     # Positions de chaque groupe de barres (matières)
     for i, house in enumerate(houses):
@@ -165,16 +188,10 @@ def viz_histogram(data: pd.DataFrame) -> None:
             print(f"Aucune donnée pour la maison: {house}")
             continue  # Passer à l'itération suivante si aucune donnée
 
-        # Affichage des informations pour déboguer
-        # print(f"\nMaison: {house}")
-        # print(f"Nombre de matières: {len(subjects_list)}, Nombre de valeurs: {len(house_data)}")
-
         bar_positions = positions_base + np.arange(len(subjects_list)) + i * (1 / num_houses)
 
         # Extraction des largeurs de barre pour chq matière dans l'ordre
         house_bar_widths = house_data.set_index("Subject").reindex(subjects_list)["Adj_Width"]
-        # print(f"\nMaison = {house}")
-        # print(f"largeurs de barre = \n{house_bar_widths}")
 
         # Tracer la barre pour chaque maison avec des largeurs ajustées
         plt.bar(
@@ -183,7 +200,8 @@ def viz_histogram(data: pd.DataFrame) -> None:
             width=house_bar_widths,  # largeur dynamique
             label=house,
             color=house_colors[house],
-            edgecolor="black",
+            # edgecolor="black",
+            edgecolor=house_colors[house],
         )
         # Ajouter les lignes pour les percentiles 50 et 25
         for subject in subjects_list:
@@ -227,25 +245,25 @@ def viz_histogram(data: pd.DataFrame) -> None:
     plt.ylabel(f"{rank}e Percentile des notes")
     plt.title(f"{rank}e Percentile des notes par matière et par maison")
 
-    scaling_factor = 2.85  # A AJUSTER
-    positions_base_scaled = positions_base * scaling_factor
+    scaling = 2.85  # A AJUSTER (position des étiquettes sur abscisse)
+    positions_base_scaled = positions_base * scaling
     plt.xticks(
-        positions_base_scaled + widths_sum_per_subject.values / 2 * scaling_factor,
+        positions_base_scaled + widths_sum_per_subject.values / 2 * scaling,
         [subject.split()[0] for subject in subjects_list],
         # rotation=45,
         ha="right",
         )
 
     plt.legend(title="House")
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.grid(axis="y", linestyle="--", alpha=0.7)
 
     # Afficher le graphique
     plt.tight_layout()
     fig = plt.gcf()  # On obtient le graphe en cours
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
     plt.show()
-
 # ----- HISTOGRAMME ----------------------------------
+
 
 def load(path: str) -> pd.DataFrame:
     """Load a file.csv and return a dataset."""
@@ -332,7 +350,10 @@ def main() -> None:
         data = load(file_path)
         if data is None:
             sys.exit(1)
-        viz_histogram(data)
+        try:
+            viz_histogram(data)
+        except ValueError as e:
+            print(e)
     else:
         print(f"Erreur : le fichier '{filename}' n'a pas été trouvé.")
 
