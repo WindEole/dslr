@@ -25,7 +25,7 @@ def ft_maximum(val: pd.Series) -> float:
 
 
 def ft_percentile(rank: float, val: pd.Series, count: float) -> float:
-    """Find the percentile of a serie of values.
+    """Calculate the desired percentile for a series of values.
 
     param rank - a float value from 0.0 to 100.0
     param val - data (must be sorted)
