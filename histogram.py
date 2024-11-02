@@ -89,14 +89,13 @@ def ft_minimum(val: pd.Series) -> float:
     return None  # S'il n'y a pas de valeurs non-nulles
 
 
-def normalize_data(data: pd.DataFrame, house_col: str) -> pd.Series:
-    # On élague le DataFrame avec seulement les col dont on a besoin
-    # -> les notes
+def normalize_data(data: pd.DataFrame) -> pd.Series:
+    """Normalize the grades of all subjects between 0.0 and 1.0."""
     subjects = data.select_dtypes(include=["number"]).drop(
         ["Index"],
         axis=1,
         errors="ignore")
-    # -> On Normalise les notes (trop disparates !) min-max
+    # On Normalise les notes (trop disparates !) min-max
     subjects_min = {}
     subjects_max = {}
     for col in subjects.columns:
@@ -137,7 +136,7 @@ def viz_histogram(data: pd.DataFrame) -> None:
     }
 
     # Normalisation des notes
-    subjects_norm = normalize_data(data, house_col)
+    subjects_norm = normalize_data(data)
     # On ajoute les Maisons au notes
     filtered_data = pd.concat([data[house_col], subjects_norm], axis=1)
     # On regroupe par maison
@@ -220,7 +219,8 @@ def viz_histogram(data: pd.DataFrame) -> None:
                     y=perc_75_value,
                     xmin=bar_position - bar_width / 2,
                     xmax=bar_position + bar_width / 2,
-                    colors="black",
+                    # colors="black",
+                    colors="red",
                     linewidth=1.5,
                 )
             if perc_50_value is not None:
@@ -228,7 +228,8 @@ def viz_histogram(data: pd.DataFrame) -> None:
                     y=perc_50_value,
                     xmin=bar_position - bar_width / 2,
                     xmax=bar_position + bar_width / 2,
-                    colors="black",
+                    # colors="black",
+                    colors="green",
                     linewidth=1.5,
                 )
             if perc_25_value is not None:
@@ -236,7 +237,8 @@ def viz_histogram(data: pd.DataFrame) -> None:
                     y=perc_25_value,
                     xmin=bar_position - bar_width / 2,
                     xmax=bar_position + bar_width / 2,
-                    colors="black",
+                    # colors="black",
+                    colors="blue",
                     linewidth=1.5,
                 )
 
