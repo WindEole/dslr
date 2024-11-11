@@ -128,12 +128,12 @@ def viz_histogram(data: pd.DataFrame) -> None:
         print(f"{maison}: {count}")
 
     # Dictionnaire des maisons et leurs couleurs
-    house_colors = {
-        "Gryffindor": "#FF6666",  # Rouge
-        "Hufflepuff": "#FFFF66",  # Jaune
-        "Ravenclaw": "#3399FF",   # Bleu
-        "Slytherin": "#66FF66",   # Vert
-    }
+    # house_colors = {
+    #     "Gryffindor": "#FF6666",  # Rouge
+    #     "Hufflepuff": "#FFFF66",  # Jaune
+    #     "Ravenclaw": "#3399FF",   # Bleu
+    #     "Slytherin": "#66FF66",   # Vert
+    # }
 
     # Normalisation des notes
     subjects_norm = normalize_data(data)
@@ -180,6 +180,40 @@ def viz_histogram(data: pd.DataFrame) -> None:
     # Calcul des positions de base cumulatives
     positions_base = np.cumsum([0] + widths_sum_per_subject[:-1].tolist())
 
+
+    # # Couleurs pour chaque plage de percentile pour chaque maison
+    # percentile_colors = {
+    #     "Gryffindor": ["#EF9A9A", "#EF5350", "#E53935", "#C62828"],  # Var rouge
+    #     "Hufflepuff": ["#F9E79F", "#F7DC6F", "#F4D03F", "#F1C40F"],  # Var jaune
+    #     "Ravenclaw": ["#00CCFF", "#0099FF", "#0066FF", "#0033FF"],  # Var bleu
+    #     "Slytherin": ["#C8E6C9", "#81C784", "#4CAF50", "#388E3C"],  # Var vert
+    # }
+#f5b7b1 #f1948a #ec7063 #e74c3c # rouge clair -> sombre
+#2e86c1 #3498db #5dade2 #85c1e9 #aed6f1 #bleu sombre -> clair
+#229954 #27ae60 #52be80 #7dcea0 #a9dfbf # vert sombre -> clair
+    # Couleurs pour chaque plage de percentile pour chaque maison
+    percentile_colors = {
+        "Gryffindor": ["#e74c3c", "#ec7063", "#f1948a", "#f5b7b1"],  # Var rouge
+        # "Gryffindor": ["#B71C1C", "#E53935", "#E57373", "#FFEBEE"],  # Var rouge
+        "Hufflepuff": ["#F1C40F", "#F4D03F", "#F7DC6F", "#F9E79F"],  # Var jaune
+        "Ravenclaw": ["#3498db", "#5dade2", "#85c1e9", "#aed6f1"],  # Var bleu
+        "Slytherin": ["#27ae60", "#52be80", "#7dcea0", "#a9dfbf"],  # Var vert
+    }
+    edge_colors = {
+        "Gryffindor": [ "#cb4335" ],  # Var rouge
+        # "Gryffindor": ["#B71C1C","#B71C1C", "#E53935", "#E57373"],  # Var rouge
+        "Hufflepuff": ["#d4ac0d" ],  # Var jaune
+        # "Hufflepuff": ["#F1C40F", "#F1C40F", "#F4D03F", "#F7DC6F"],  # Var jaune
+        "Ravenclaw": ["#2e86c1"],  # Var bleu
+        # "Ravenclaw": ["#0033FF", "#0033FF", "#0066FF", "#0099FF"],  # Var bleu
+        "Slytherin": ["#229954"],  # Var vert
+        # "Slytherin": ["#388E3C", "#388E3C", "#4CAF50", "#81C784"],  # Var vert
+    }
+
+    # Dictionnaire pour stocker les maisons déjà tracées dans la légende
+    added_to_legend = {house: False for house in houses}
+    added_perc_legend = False
+
     # Positions de chaque groupe de barres (matières)
     for i, house in enumerate(houses):
         house_data = perc_data[perc_data["House"] == house]
@@ -192,55 +226,129 @@ def viz_histogram(data: pd.DataFrame) -> None:
         # Extraction des largeurs de barre pour chq matière dans l'ordre
         house_bar_widths = house_data.set_index("Subject").reindex(subjects_list)["Adj_Width"]
 
-        # Tracer la barre pour chaque maison avec des largeurs ajustées
-        plt.bar(
-            bar_positions,
-            house_data["Percentile"],
-            width=house_bar_widths,  # largeur dynamique
-            label=house,
-            color=house_colors[house],
-            # edgecolor="black",
-            edgecolor=house_colors[house],
-        )
-        # Ajouter les lignes pour les percentiles 50 et 25
-        for subject in subjects_list:
-            # Obtenir la position et la largeur de la barre pour cette matière
-            bar_position = bar_positions[subjects_list.tolist().index(subject)]
+    # Tracer les sections empilées pour chaque plage de percentiles
+        for j, subject in enumerate(subjects_list):
+            bar_position = bar_positions[j]
             bar_width = house_bar_widths[subject]
+            # Extraire les percentiles pour chaque plage (car opération impossible sur dict)
+            perc_100 = next((item["Percentile"] for item in percentiles if item["House"] == house and item["Subject"] == subject), 0)
+            perc_75 = next((item["Percentile"] for item in percentiles_75 if item["House"] == house and item["Subject"] == subject), 0)
+            perc_50 = next((item["Percentile"] for item in percentiles_50 if item["House"] == house and item["Subject"] == subject), 0)
+            perc_25 = next((item["Percentile"] for item in percentiles_25 if item["House"] == house and item["Subject"] == subject), 0)
 
-            # Extraire les percentiles 50 et 25 pour la maison et la matière actuelle
-            perc_75_value = next((item["Percentile"] for item in percentiles_75 if item["House"] == house and item["Subject"] == subject), None)
-            perc_50_value = next((item["Percentile"] for item in percentiles_50 if item["House"] == house and item["Subject"] == subject), None)
-            perc_25_value = next((item["Percentile"] for item in percentiles_25 if item["House"] == house and item["Subject"] == subject), None)
+            # Vérifier que toutes les valeurs existent avant de tracer
+            if None in (perc_100, perc_75, perc_50, perc_25):
+                print(f"Données manquantes pour {house} - {subject}")
+                continue
+
+            # Déterminer les hauteurs des sections de barre
+            heights = [
+                perc_25,                  # 0 - 25
+                perc_50 - perc_25,  # 25 - 50
+                perc_75 - perc_50,  # 50 - 75
+                perc_100 - perc_75, # 75 - 100
+            ]
+
+            # Tracer chaque section de barre
+            bottom = 0
+            for k, height in enumerate(heights):
+                plt.bar(
+                    bar_position,
+                    height,
+                    width=bar_width,
+                    color=percentile_colors[house][k],  # couleur spécifique au segment
+                    edgecolor=edge_colors[house],
+                    # edgecolor="black",  #if k == 3 else None,  # bordure noire pour la section 75-100 seulement
+                    bottom=bottom,  # empiler sur la section précédente
+                    label=house if not added_to_legend[house] and k == 0 else None,  # ajouter un label seulement pour la première tranche
+                )
+                bottom += height  # Monter le bas pour empiler la section suivante
+
+            # Marquer la maison comme ajoutée à la légende
+            added_to_legend[house] = True
 
             # Tracer les lignes pour les percentiles 75, 50 et 25
-            if perc_75_value is not None:
+            if perc_75 is not None:
                 plt.hlines(
-                    y=perc_75_value,
+                    y=perc_75,
                     xmin=bar_position - bar_width / 2,
                     xmax=bar_position + bar_width / 2,
-                    # colors="black",
-                    colors="red",
+                    colors="#273746",
+                    # colors="red",
+                    label="percentile" if not added_perc_legend else None,
                     linewidth=1.5,
                 )
-            if perc_50_value is not None:
+            if perc_50 is not None:
                 plt.hlines(
-                    y=perc_50_value,
+                    y=perc_50,
                     xmin=bar_position - bar_width / 2,
                     xmax=bar_position + bar_width / 2,
-                    # colors="black",
-                    colors="green",
+                    colors="#273746",
+                    # colors="green",
                     linewidth=1.5,
                 )
-            if perc_25_value is not None:
+            if perc_25 is not None:
                 plt.hlines(
-                    y=perc_25_value,
+                    y=perc_25,
                     xmin=bar_position - bar_width / 2,
                     xmax=bar_position + bar_width / 2,
-                    # colors="black",
-                    colors="blue",
+                    colors="#273746",
+                    # colors="blue",
                     linewidth=1.5,
                 )
+            added_perc_legend = True
+
+# ----- SAUVEGARDE ANCIEN HISTOGRAMME ----- #
+        # # Tracer la barre pour chaque maison avec des largeurs ajustées
+        # plt.bar(
+        #     bar_positions,
+        #     house_data["Percentile"],
+        #     width=house_bar_widths,  # largeur dynamique
+        #     label=house,
+        #     color=house_colors[house],
+        #     # edgecolor="black",
+        #     edgecolor=house_colors[house],
+        # )
+        # # Ajouter les lignes pour les percentiles 50 et 25
+        # for subject in subjects_list:
+        #     # Obtenir la position et la largeur de la barre pour cette matière
+        #     bar_position = bar_positions[subjects_list.tolist().index(subject)]
+        #     bar_width = house_bar_widths[subject]
+
+        #     # Extraire les percentiles 50 et 25 pour la maison et la matière actuelle
+        #     perc_75_value = next((item["Percentile"] for item in percentiles_75 if item["House"] == house and item["Subject"] == subject), None)
+        #     perc_50_value = next((item["Percentile"] for item in percentiles_50 if item["House"] == house and item["Subject"] == subject), None)
+        #     perc_25_value = next((item["Percentile"] for item in percentiles_25 if item["House"] == house and item["Subject"] == subject), None)
+
+        #     # Tracer les lignes pour les percentiles 75, 50 et 25
+        #     if perc_75_value is not None:
+        #         plt.hlines(
+        #             y=perc_75_value,
+        #             xmin=bar_position - bar_width / 2,
+        #             xmax=bar_position + bar_width / 2,
+        #             # colors="black",
+        #             colors="red",
+        #             linewidth=1.5,
+        #         )
+        #     if perc_50_value is not None:
+        #         plt.hlines(
+        #             y=perc_50_value,
+        #             xmin=bar_position - bar_width / 2,
+        #             xmax=bar_position + bar_width / 2,
+        #             # colors="black",
+        #             colors="green",
+        #             linewidth=1.5,
+        #         )
+        #     if perc_25_value is not None:
+        #         plt.hlines(
+        #             y=perc_25_value,
+        #             xmin=bar_position - bar_width / 2,
+        #             xmax=bar_position + bar_width / 2,
+        #             # colors="black",
+        #             colors="blue",
+        #             linewidth=1.5,
+        #         )
+# ----- SAUVEGARDE ANCIEN HISTOGRAMME ----- #
 
     # Configuration des axes et légende
     plt.xlabel("Subjects")
@@ -256,14 +364,16 @@ def viz_histogram(data: pd.DataFrame) -> None:
         ha="right",
         )
 
-    plt.legend(title="House")
+    # plt.legend(title="House")
+    plt.legend()
     plt.grid(axis="y", linestyle="--", alpha=0.7)
 
     # Afficher le graphique
     plt.tight_layout()
     fig = plt.gcf()  # On obtient le graphe en cours
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
-    plt.show()
+    plt.savefig("output.png")
+    # plt.show()
 # ----- HISTOGRAMME ----------------------------------
 
 
