@@ -204,7 +204,7 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
         max_width = max(max_width, width)
 
         # Stocker la largeur max trouvée pour cette colonne
-        column_widths[col] = max_width
+        column_widths[col] = max_width + 2
 
     # Largeur de l'index pour les statistiques
     index_col_width = max(len(stat) for stat in stats_headers) + 2

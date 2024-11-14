@@ -3,7 +3,6 @@
 Ce programme ouvre un fichier de données compressées au format .tgz et
 génère une visualisation des données sous forme d'histogramme.
 """
-
 import os.path
 import re
 import sys
@@ -13,40 +12,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from describe import ft_maximum, ft_minimum, ft_percentile
+
 
 def close_on_enter(event: any) -> None:
     """Close the figure when the Enter key is pressed."""
     if event.key == "enter":  # Si la touche 'Enter' est pressée
         plt.close(event.canvas.figure)  # Ferme la figure associée
-
-
-def ft_percentile(rank: float, val: pd.Series, count: float) -> float:
-    """Calculate the desired percentile for a series of values.
-
-    param rank - a float value from 0.0 to 100.0
-    param val - data (must be sorted)
-    return - the percentile of the values.
-    Explication percentile : En-dessous de la valeur retournée se trouvent
-    25%, 50% ou 75% des observations.
-    """
-    if count == 0:  # cas où la série est vide
-        return None
-
-    # préparation des paramètre avant calcul
-    rank = rank / 100
-    sort_val = val.sort_values().reset_index(drop=True)  # Trier et réindexer
-
-    # calcul de l'index percentile (l'index doit rester dans les limites)
-    perc_rank = rank * (count - 1)
-    index_low = int(perc_rank)  # Partie entière inférieure
-    index_high = min(index_low + 1, count - 1)  # Entier sup ou max index
-
-    # Calculer une interpolation si nécessaire
-    high = perc_rank - index_low  # Pourcentage pour la valeur haute
-    low = 1 - high  # Pourcentage pour la valeur basse
-
-    # Calculer le percentile en pondérant les valeurs inférieure et supérieure
-    return sort_val.iloc[index_low] * low + sort_val.iloc[index_high] * high
 
 
 def calcul_perc(
@@ -67,28 +39,6 @@ def calcul_perc(
     return percentiles
 
 
-def ft_maximum(val: pd.Series) -> float:
-    """Determine the maximum value of a dataset."""
-    if not val.empty:  # s'il y a des valeurs non-nulles
-        tmp_max = val.iloc[0]  # on initialise avec la première valeur
-        for value in val.iloc[1:]:
-            if value > tmp_max:
-                tmp_max = value
-        return tmp_max
-    return None  # S'il n'y a pas de valeurs non-nulles
-
-
-def ft_minimum(val: pd.Series) -> float:
-    """Determine the minimum value of a dataset."""
-    if not val.empty:  # s'il y a des valeurs non-nulles
-        tmp_min = val.iloc[0]  # on initialise avec la première valeur
-        for value in val.iloc[1:]:
-            if value < tmp_min:
-                tmp_min = value
-        return tmp_min
-    return None  # S'il n'y a pas de valeurs non-nulles
-
-
 def normalize_data(data: pd.DataFrame) -> pd.Series:
     """Normalize the grades of all subjects between 0.0 and 1.0."""
     subjects = data.select_dtypes(include=["number"]).drop(
@@ -103,9 +53,9 @@ def normalize_data(data: pd.DataFrame) -> pd.Series:
         subjects_min[col] = ft_minimum(non_null_values)
         subjects_max[col] = ft_maximum(non_null_values)
 
-    subjects_min_series = pd.Series(subjects_min)
-    subjects_max_series = pd.Series(subjects_max)
-    subjects_norm = (subjects - subjects_min_series) / (subjects_max_series - subjects_min_series)
+    s_min_series = pd.Series(subjects_min)
+    s_max_series = pd.Series(subjects_max)
+    subjects_norm = (subjects - s_min_series) / (s_max_series - s_min_series)
     return subjects_norm
 
 
@@ -127,17 +77,10 @@ def viz_histogram(data: pd.DataFrame) -> None:
     for maison, count in house_counts.items():
         print(f"{maison}: {count}")
 
-    # Dictionnaire des maisons et leurs couleurs
-    # house_colors = {
-    #     "Gryffindor": "#FF6666",  # Rouge
-    #     "Hufflepuff": "#FFFF66",  # Jaune
-    #     "Ravenclaw": "#3399FF",   # Bleu
-    #     "Slytherin": "#66FF66",   # Vert
-    # }
-
     # Normalisation des notes
     subjects_norm = normalize_data(data)
-    # On ajoute les Maisons au notes
+    print(subjects_norm)
+    # On ajoute les Maisons aux notes
     filtered_data = pd.concat([data[house_col], subjects_norm], axis=1)
     # On regroupe par maison
     grouped_data = filtered_data.groupby(house_col)
@@ -169,9 +112,9 @@ def viz_histogram(data: pd.DataFrame) -> None:
 # ----- HISTOGRAMME ----------------------------------
     # Tracer l'histogramme avec distinction par maison
     plt.figure(figsize=(18, 10))
+
     subjects_list = perc_data["Subject"].unique()
     houses = perc_data["House"].unique()
-
     num_houses = len(houses)
 
     # Calcul de la somme des largeurs de barres pour chaque matière
@@ -180,39 +123,26 @@ def viz_histogram(data: pd.DataFrame) -> None:
     # Calcul des positions de base cumulatives
     positions_base = np.cumsum([0] + widths_sum_per_subject[:-1].tolist())
 
-
-    # # Couleurs pour chaque plage de percentile pour chaque maison
-    # percentile_colors = {
-    #     "Gryffindor": ["#EF9A9A", "#EF5350", "#E53935", "#C62828"],  # Var rouge
-    #     "Hufflepuff": ["#F9E79F", "#F7DC6F", "#F4D03F", "#F1C40F"],  # Var jaune
-    #     "Ravenclaw": ["#00CCFF", "#0099FF", "#0066FF", "#0033FF"],  # Var bleu
-    #     "Slytherin": ["#C8E6C9", "#81C784", "#4CAF50", "#388E3C"],  # Var vert
-    # }
-#f5b7b1 #f1948a #ec7063 #e74c3c # rouge clair -> sombre
-#2e86c1 #3498db #5dade2 #85c1e9 #aed6f1 #bleu sombre -> clair
-#229954 #27ae60 #52be80 #7dcea0 #a9dfbf # vert sombre -> clair
     # Couleurs pour chaque plage de percentile pour chaque maison
+    # #f5b7b1 #f1948a #ec7063 #e74c3c # rouge clair -> sombre
+    # #2e86c1 #3498db #5dade2 #85c1e9 #aed6f1 #bleu sombre -> clair
+    # #229954 #27ae60 #52be80 #7dcea0 #a9dfbf # vert sombre -> clair
     percentile_colors = {
-        "Gryffindor": ["#e74c3c", "#ec7063", "#f1948a", "#f5b7b1"],  # Var rouge
-        # "Gryffindor": ["#B71C1C", "#E53935", "#E57373", "#FFEBEE"],  # Var rouge
-        "Hufflepuff": ["#F1C40F", "#F4D03F", "#F7DC6F", "#F9E79F"],  # Var jaune
-        "Ravenclaw": ["#3498db", "#5dade2", "#85c1e9", "#aed6f1"],  # Var bleu
-        "Slytherin": ["#27ae60", "#52be80", "#7dcea0", "#a9dfbf"],  # Var vert
+        "Gryffindor": ["#e74c3c", "#ec7063", "#f1948a", "#f5b7b1"],  # rouge
+        "Hufflepuff": ["#F1C40F", "#F4D03F", "#F7DC6F", "#F9E79F"],  # jaune
+        "Ravenclaw": ["#3498db", "#5dade2", "#85c1e9", "#aed6f1"],  # bleu
+        "Slytherin": ["#27ae60", "#52be80", "#7dcea0", "#a9dfbf"],  # vert
     }
     edge_colors = {
-        "Gryffindor": [ "#cb4335" ],  # Var rouge
-        # "Gryffindor": ["#B71C1C","#B71C1C", "#E53935", "#E57373"],  # Var rouge
-        "Hufflepuff": ["#d4ac0d" ],  # Var jaune
-        # "Hufflepuff": ["#F1C40F", "#F1C40F", "#F4D03F", "#F7DC6F"],  # Var jaune
-        "Ravenclaw": ["#2e86c1"],  # Var bleu
-        # "Ravenclaw": ["#0033FF", "#0033FF", "#0066FF", "#0099FF"],  # Var bleu
-        "Slytherin": ["#229954"],  # Var vert
-        # "Slytherin": ["#388E3C", "#388E3C", "#4CAF50", "#81C784"],  # Var vert
+        "Gryffindor": ["#cb4335"],  # rouge
+        "Hufflepuff": ["#d4ac0d"],  # jaune
+        "Ravenclaw": ["#2e86c1"],  # bleu
+        "Slytherin": ["#229954"],  # vert
     }
 
     # Dictionnaire pour stocker les maisons déjà tracées dans la légende
-    added_to_legend = {house: False for house in houses}
-    added_perc_legend = False
+    add_legend = {house: False for house in houses}
+    add_perc_legend = False
 
     # Positions de chaque groupe de barres (matières)
     for i, house in enumerate(houses):
@@ -226,11 +156,11 @@ def viz_histogram(data: pd.DataFrame) -> None:
         # Extraction des largeurs de barre pour chq matière dans l'ordre
         house_bar_widths = house_data.set_index("Subject").reindex(subjects_list)["Adj_Width"]
 
-    # Tracer les sections empilées pour chaque plage de percentiles
+        # Tracer les sections empilées pour chaque plage de percentiles
         for j, subject in enumerate(subjects_list):
             bar_position = bar_positions[j]
             bar_width = house_bar_widths[subject]
-            # Extraire les percentiles pour chaque plage (car opération impossible sur dict)
+            # Extraire les percentiles pour chaque plage (0 calcul sur dict)
             perc_100 = next((item["Percentile"] for item in percentiles if item["House"] == house and item["Subject"] == subject), 0)
             perc_75 = next((item["Percentile"] for item in percentiles_75 if item["House"] == house and item["Subject"] == subject), 0)
             perc_50 = next((item["Percentile"] for item in percentiles_50 if item["House"] == house and item["Subject"] == subject), 0)
@@ -243,10 +173,10 @@ def viz_histogram(data: pd.DataFrame) -> None:
 
             # Déterminer les hauteurs des sections de barre
             heights = [
-                perc_25,                  # 0 - 25
-                perc_50 - perc_25,  # 25 - 50
-                perc_75 - perc_50,  # 50 - 75
-                perc_100 - perc_75, # 75 - 100
+                perc_25,             # 0 - 25
+                perc_50 - perc_25,   # 25 - 50
+                perc_75 - perc_50,   # 50 - 75
+                perc_100 - perc_75,  # 75 - 100
             ]
 
             # Tracer chaque section de barre
@@ -256,16 +186,17 @@ def viz_histogram(data: pd.DataFrame) -> None:
                     bar_position,
                     height,
                     width=bar_width,
-                    color=percentile_colors[house][k],  # couleur spécifique au segment
+                    # couleur spécifique au segment :
+                    color=percentile_colors[house][k],
                     edgecolor=edge_colors[house],
-                    # edgecolor="black",  #if k == 3 else None,  # bordure noire pour la section 75-100 seulement
                     bottom=bottom,  # empiler sur la section précédente
-                    label=house if not added_to_legend[house] and k == 0 else None,  # ajouter un label seulement pour la première tranche
+                    # ajouter un label seulement pour la première tranche :
+                    label=house if not add_legend[house] and k == 0 else None,
                 )
-                bottom += height  # Monter le bas pour empiler la section suivante
+                bottom += height  # Monter le bas pour empiler plage suivante
 
             # Marquer la maison comme ajoutée à la légende
-            added_to_legend[house] = True
+            add_legend[house] = True
 
             # Tracer les lignes pour les percentiles 75, 50 et 25
             if perc_75 is not None:
@@ -274,8 +205,7 @@ def viz_histogram(data: pd.DataFrame) -> None:
                     xmin=bar_position - bar_width / 2,
                     xmax=bar_position + bar_width / 2,
                     colors="#273746",
-                    # colors="red",
-                    label="percentile" if not added_perc_legend else None,
+                    label="percentile" if not add_perc_legend else None,
                     linewidth=1.5,
                 )
             if perc_50 is not None:
@@ -284,7 +214,6 @@ def viz_histogram(data: pd.DataFrame) -> None:
                     xmin=bar_position - bar_width / 2,
                     xmax=bar_position + bar_width / 2,
                     colors="#273746",
-                    # colors="green",
                     linewidth=1.5,
                 )
             if perc_25 is not None:
@@ -293,62 +222,9 @@ def viz_histogram(data: pd.DataFrame) -> None:
                     xmin=bar_position - bar_width / 2,
                     xmax=bar_position + bar_width / 2,
                     colors="#273746",
-                    # colors="blue",
                     linewidth=1.5,
                 )
-            added_perc_legend = True
-
-# ----- SAUVEGARDE ANCIEN HISTOGRAMME ----- #
-        # # Tracer la barre pour chaque maison avec des largeurs ajustées
-        # plt.bar(
-        #     bar_positions,
-        #     house_data["Percentile"],
-        #     width=house_bar_widths,  # largeur dynamique
-        #     label=house,
-        #     color=house_colors[house],
-        #     # edgecolor="black",
-        #     edgecolor=house_colors[house],
-        # )
-        # # Ajouter les lignes pour les percentiles 50 et 25
-        # for subject in subjects_list:
-        #     # Obtenir la position et la largeur de la barre pour cette matière
-        #     bar_position = bar_positions[subjects_list.tolist().index(subject)]
-        #     bar_width = house_bar_widths[subject]
-
-        #     # Extraire les percentiles 50 et 25 pour la maison et la matière actuelle
-        #     perc_75_value = next((item["Percentile"] for item in percentiles_75 if item["House"] == house and item["Subject"] == subject), None)
-        #     perc_50_value = next((item["Percentile"] for item in percentiles_50 if item["House"] == house and item["Subject"] == subject), None)
-        #     perc_25_value = next((item["Percentile"] for item in percentiles_25 if item["House"] == house and item["Subject"] == subject), None)
-
-        #     # Tracer les lignes pour les percentiles 75, 50 et 25
-        #     if perc_75_value is not None:
-        #         plt.hlines(
-        #             y=perc_75_value,
-        #             xmin=bar_position - bar_width / 2,
-        #             xmax=bar_position + bar_width / 2,
-        #             # colors="black",
-        #             colors="red",
-        #             linewidth=1.5,
-        #         )
-        #     if perc_50_value is not None:
-        #         plt.hlines(
-        #             y=perc_50_value,
-        #             xmin=bar_position - bar_width / 2,
-        #             xmax=bar_position + bar_width / 2,
-        #             # colors="black",
-        #             colors="green",
-        #             linewidth=1.5,
-        #         )
-        #     if perc_25_value is not None:
-        #         plt.hlines(
-        #             y=perc_25_value,
-        #             xmin=bar_position - bar_width / 2,
-        #             xmax=bar_position + bar_width / 2,
-        #             # colors="black",
-        #             colors="blue",
-        #             linewidth=1.5,
-        #         )
-# ----- SAUVEGARDE ANCIEN HISTOGRAMME ----- #
+            add_perc_legend = True
 
     # Configuration des axes et légende
     plt.xlabel("Subjects")
@@ -373,8 +249,63 @@ def viz_histogram(data: pd.DataFrame) -> None:
     fig = plt.gcf()  # On obtient le graphe en cours
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
     plt.savefig("output.png")
-    # plt.show()
+    plt.show()
 # ----- HISTOGRAMME ----------------------------------
+# ----- HISTOGRAMME DIFFERENT ------------------------
+    # Couleurs par maison
+    house_colors_new = {
+        "Gryffindor": "#e74c3c",
+        "Hufflepuff": "#F1C40F",
+        "Ravenclaw": "#3498db",
+        "Slytherin": "#27ae60",
+    }
+
+    # Normalisation des notes (ex : toutes entre 0 et 100)
+    subjects = [col for col in subjects_norm.columns if col not in [house_col]]
+    normalized_data = filtered_data.copy()
+    for subject in subjects:
+        normalized_data[subject] = round(subjects_norm[subject] * 100, 2)
+
+    print(normalized_data)
+    # index_norm_data = pd.concat([data["Index"], filtered_data], axis=1)
+
+    # Définition de la grille de subplots
+    num_subjects = len(subjects)
+    cols = 5  # Nombre de colonnes dans la mosaïque
+    rows = (num_subjects // cols) + (num_subjects % cols > 0)
+    fig, axes = plt.subplots(rows, cols, figsize=(15, 10), sharey=True)
+    axes = axes.flatten()
+
+    # Créer des histogrammes pour chaque matière
+    for idx, subject in enumerate(subjects):
+        ax = axes[idx]
+
+        # Histogrammes empilés par maison pour chaque plage de notes
+        bins = np.linspace(0, 100, 11)  # Plages de notes de 10 en 10
+
+        # Parcourir chaque maison
+        for house, color in house_colors_new.items():
+            house_data = normalized_data[normalized_data[house_col] == house][subject]
+            ax.hist(house_data, bins=bins, alpha=0.5, label=house, color=color, edgecolor="black")
+
+        # Configuration du graphique
+        ax.set_title(subject)
+        ax.set_xlabel("Plages de notes (%)")
+        ax.set_ylabel("Nombre d'élèves")
+
+    # Supprimer les axes vides (si le nombre de matières ne remplit pas la grille)
+    for j in range(idx + 1, len(axes)):
+        fig.delaxes(axes[j])
+
+    # Légende et affichage
+    fig.suptitle("Distribution des notes par matière et par maison")
+    plt.legend(title="Maison", loc='upper right', bbox_to_anchor=(1.2, 1))
+    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Ajuste la disposition
+    fig.canvas.mpl_connect("key_press_event", close_on_enter)
+    plt.savefig("output.png")
+    plt.show()
+
+# ----- HISTOGRAMME DIFFERENT ------------------------
 
 
 def load(path: str) -> pd.DataFrame:
@@ -439,7 +370,7 @@ def main() -> None:
     """Load data and visualize."""
     # On vérifie si l'arg en ligne de commande est fourni
     if len(sys.argv) != 2:
-        print("Usage: python describe.py fichier.csv")
+        print("Usage: python histogram.py fichier.csv")
         sys.exit(1)
 
     filename = sys.argv[1]
@@ -464,6 +395,10 @@ def main() -> None:
             sys.exit(1)
         try:
             viz_histogram(data)
+        except KeyboardInterrupt:
+            print("\nInterruption du programme par l'utilisateur (Ctrl + C)")
+            plt.close("all")  # Ferme tous les graphes ouverts
+            sys.exit(0)  # Sort proprement du programme
         except ValueError as e:
             print(e)
     else:
