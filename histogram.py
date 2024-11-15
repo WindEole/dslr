@@ -85,6 +85,7 @@ def viz_histogram(data: pd.DataFrame) -> None:
     # On regroupe par maison
     grouped_data = filtered_data.groupby(house_col)
 
+
     rank = 100
     percentiles = calcul_perc(grouped_data, subjects_norm, rank)
     percentiles_75 = calcul_perc(grouped_data, subjects_norm, 75)
@@ -109,7 +110,7 @@ def viz_histogram(data: pd.DataFrame) -> None:
         (max_width - min_width)
     )
 
-# ----- HISTOGRAMME ----------------------------------
+# ----- HISTOGRAMME GENERAL ----------------------------------
     # Tracer l'histogramme avec distinction par maison
     plt.figure(figsize=(18, 10))
 
@@ -250,8 +251,9 @@ def viz_histogram(data: pd.DataFrame) -> None:
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
     plt.savefig("output.png")
     plt.show()
-# ----- HISTOGRAMME ----------------------------------
-# ----- HISTOGRAMME DIFFERENT ------------------------
+# ----- HISTOGRAMME GENERAL FIN ------------------------------
+
+# ----- HISTOGRAMME DIFFERENT --------------------------------
     # Couleurs par maison
     house_colors_new = {
         "Gryffindor": "#e74c3c",
@@ -304,8 +306,73 @@ def viz_histogram(data: pd.DataFrame) -> None:
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
     plt.savefig("output.png")
     plt.show()
+# ----- HISTOGRAMME DIFFERENT --------------------------------
 
-# ----- HISTOGRAMME DIFFERENT ------------------------
+# ---- TEST DE PRESELECTION ----------------------------------
+    grouped_std = filtered_data.groupby(house_col).std()
+    print(f"\necart-type par Maison =\n{grouped_std}")
+
+    mean_per_house = filtered_data.groupby(house_col).mean()
+    var_inter_house = mean_per_house.var()
+    print(f"\nvariance des moyennes =\n{var_inter_house}")
+
+    cv = grouped_std / mean_per_house
+    print(f"\ncoeff de variation =\n{cv}")
+
+    variation_metrics = pd.DataFrame({
+        "Std_Dev": cv.std(),
+        "Range":cv.max() - cv.min(),
+    })
+    print(f"\nVariation metrics = \n{variation_metrics}")
+
+    sorted_variations = variation_metrics.sort_values(by="Std_Dev")
+    print(f"variations metrics triées croissant :\n{sorted_variations}")
+
+    most_homogenous_subjects = sorted_variations.index[:3]
+    print(f"\nmatières les plus homogènes =\n{most_homogenous_subjects}")
+
+    norm_data = filtered_data.copy()
+    for subject in most_homogenous_subjects:
+        norm_data[subject] = round(subjects_norm[subject] * 100, 2)
+
+    print(norm_data)
+    # index_norm_data = pd.concat([data["Index"], filtered_data], axis=1)
+
+    # Définition de la grille de subplots
+    number_homo_subjects = len(most_homogenous_subjects)
+    cols = 5  # Nombre de colonnes dans la mosaïque
+    rows = (number_homo_subjects // cols) + (number_homo_subjects % cols > 0)
+    fig, axes = plt.subplots(rows, cols, figsize=(10, 5), sharey=True)
+    axes = axes.flatten()
+
+    # Créer des histogrammes pour chaque matière
+    for idx, subject in enumerate(most_homogenous_subjects):
+        ax = axes[idx]
+
+        # Histogrammes empilés par maison pour chaque plage de notes
+        bins = np.linspace(0, 100, 11)  # Plages de notes de 10 en 10
+
+        # Parcourir chaque maison
+        for house, color in house_colors_new.items():
+            house_data = normalized_data[normalized_data[house_col] == house][subject]
+            ax.hist(house_data, bins=bins, alpha=0.5, label=house, color=color, edgecolor="black")
+
+        # Configuration du graphique
+        ax.set_title(subject)
+        ax.set_xlabel("Plages de notes (%)")
+        ax.set_ylabel("Nombre d'élèves")
+
+    # Supprimer les axes vides (si le nombre de matières ne remplit pas la grille)
+    for j in range(idx + 1, len(axes)):
+        fig.delaxes(axes[j])
+
+    # Légende et affichage
+    fig.suptitle("Distribution des notes des 3 matières les plus homogènes")
+    plt.legend(title="Maison", loc="upper right")  #, bbox_to_anchor=(1.2, 1))
+    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Ajuste la disposition
+    fig.canvas.mpl_connect("key_press_event", close_on_enter)
+    plt.savefig("output.png")
+    plt.show()
 
 
 def load(path: str) -> pd.DataFrame:
