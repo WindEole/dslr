@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
 
-from describe import ft_moyenne, ft_percentile, ft_standard_deviation
+from describe import ft_mean, ft_percentile, ft_std
 
 
 def close_on_enter(event: any) -> None:
@@ -107,8 +107,8 @@ def centering_data(features: pd.DataFrame) -> pd.DataFrame:
     std_values = {}
     for col in features.columns:
         non_null_values = features[~features[col].isna()][col]
-        mean_values[col] = ft_moyenne(non_null_values, count_values[col])
-        std_values[col] = ft_standard_deviation(
+        mean_values[col] = ft_mean(non_null_values, count_values[col])
+        std_values[col] = ft_std(
             non_null_values, mean_values[col], count_values[col],
         )
     data_centered = features.copy()

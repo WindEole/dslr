@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from describe import ft_maximum, ft_minimum, ft_percentile
+from describe import ft_max, ft_min, ft_percentile, ft_mean, ft_std, ft_count
 
 
 def close_on_enter(event: any) -> None:
@@ -50,8 +50,8 @@ def normalize_data(data: pd.DataFrame) -> pd.Series:
     subjects_max = {}
     for col in subjects.columns:
         non_null_values = subjects[~subjects[col].isna()][col]
-        subjects_min[col] = ft_minimum(non_null_values)
-        subjects_max[col] = ft_maximum(non_null_values)
+        subjects_min[col] = ft_min(non_null_values)
+        subjects_max[col] = ft_max(non_null_values)
 
     s_min_series = pd.Series(subjects_min)
     s_max_series = pd.Series(subjects_max)
@@ -73,13 +73,13 @@ def viz_histogram(data: pd.DataFrame) -> None:
         raise ValueError("Aucune colonne 'House' n'a éte trouvée")
 
     house_counts = data[house_col].value_counts()
-    print("Effectifs par maison :\n")
+    print("Effectifs par maison :")
     for maison, count in house_counts.items():
         print(f"{maison}: {count}")
 
     # Normalisation des notes
     subjects_norm = normalize_data(data)
-    print(subjects_norm)
+    print(f"notes normalisées = \n{subjects_norm}")
     # On ajoute les Maisons aux notes
     filtered_data = pd.concat([data[house_col], subjects_norm], axis=1)
     # On regroupe par maison
@@ -104,9 +104,11 @@ def viz_histogram(data: pd.DataFrame) -> None:
     # Effectifs dispersés -> Normalisation des largeurs de barres !
     min_width = 0.05  # largeur min
     max_width = 0.25  # largeur max
+    perc_data_min = ft_min(perc_data["Adj_Width"])
+    perc_data_max = ft_max(perc_data["Adj_Width"])
     perc_data["Adj_Width"] = (
-        min_width + (perc_data["Adj_Width"] - perc_data["Adj_Width"].min()) /
-        (perc_data["Adj_Width"].max() - perc_data["Adj_Width"].min()) *
+        min_width + (perc_data["Adj_Width"] - perc_data_min) /
+        (perc_data_max - perc_data_min) *
         (max_width - min_width)
     )
 
@@ -241,7 +243,6 @@ def viz_histogram(data: pd.DataFrame) -> None:
         ha="right",
         )
 
-    # plt.legend(title="House")
     plt.legend()
     plt.grid(axis="y", linestyle="--", alpha=0.7)
 
@@ -249,11 +250,11 @@ def viz_histogram(data: pd.DataFrame) -> None:
     plt.tight_layout()
     fig = plt.gcf()  # On obtient le graphe en cours
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
-    plt.savefig("output.png")
+    plt.savefig("hist_percentile.png")
     plt.show()
 # ----- HISTOGRAMME GENERAL FIN ------------------------------
 
-# ----- HISTOGRAMME DIFFERENT --------------------------------
+# ----- HISTOGRAMME MOSAIQUE ---------------------------------
     # Couleurs par maison
     house_colors_new = {
         "Gryffindor": "#e74c3c",
@@ -264,12 +265,9 @@ def viz_histogram(data: pd.DataFrame) -> None:
 
     # Normalisation des notes (ex : toutes entre 0 et 100)
     subjects = [col for col in subjects_norm.columns if col not in [house_col]]
-    normalized_data = filtered_data.copy()
+    norm_data = filtered_data.copy()
     for subject in subjects:
-        normalized_data[subject] = round(subjects_norm[subject] * 100, 2)
-
-    print(normalized_data)
-    # index_norm_data = pd.concat([data["Index"], filtered_data], axis=1)
+        norm_data[subject] = round(subjects_norm[subject] * 100, 2)
 
     # Définition de la grille de subplots
     num_subjects = len(subjects)
@@ -287,8 +285,11 @@ def viz_histogram(data: pd.DataFrame) -> None:
 
         # Parcourir chaque maison
         for house, color in house_colors_new.items():
-            house_data = normalized_data[normalized_data[house_col] == house][subject]
-            ax.hist(house_data, bins=bins, alpha=0.5, label=house, color=color, edgecolor="black")
+            house_data = norm_data[norm_data[house_col] == house][subject]
+            ax.hist(
+                house_data, bins=bins, alpha=0.5,
+                label=house, color=color, edgecolor="black"
+                )
 
         # Configuration du graphique
         ax.set_title(subject)
@@ -301,47 +302,69 @@ def viz_histogram(data: pd.DataFrame) -> None:
 
     # Légende et affichage
     fig.suptitle("Distribution des notes par matière et par maison")
-    plt.legend(title="Maison", loc='upper right', bbox_to_anchor=(1.2, 1))
+    plt.legend(title="Maison", loc="upper right", bbox_to_anchor=(1.2, 1))
     plt.tight_layout(rect=[0, 0, 1, 0.96])  # Ajuste la disposition
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
-    plt.savefig("output.png")
+    plt.savefig("hist_mosaique.png")
     plt.show()
-# ----- HISTOGRAMME DIFFERENT --------------------------------
+# ----- HISTOGRAMME MOSAIQUE FIN -----------------------------
 
-# ---- TEST DE PRESELECTION ----------------------------------
+    # ATTENTION : REMANIER FT_COUNT !!! Ca fonctionne pas ! ou faire un manuel
+
+    grouped_count = ft_count(filtered_data.groupby(house_col))
+    print(f"\ncount =\n{grouped_count}")
+
+    grouped_mean = filtered_data.groupby(house_col).mean()
+    print(f"\nvariance des moyennes =\n{grouped_mean}")
+    grouped_mean_custom = {
+        group_name: {
+            col: ft_mean(group_df(col), grouped_count[group_name][house_col])
+            for col in group_df.columns
+        }
+        for group_name, group_df in filtered_data.groupby(house_col)
+    }
+    print(f"\nvariance des moyennes =\n{grouped_mean_custom}")
+
     grouped_std = filtered_data.groupby(house_col).std()
     print(f"\necart-type par Maison =\n{grouped_std}")
+    grouped_std_custom = {
+        group_name: {
+            col: ft_std(
+                group_df[col],
+                grouped_mean_custom[group_name][col],
+                grouped_count[group_name][col]
+            )
+            for col in group_df.columns
+        }
+        for group_name, group_df in filtered_data.groupby(house_col)
+    }
+    print(f"\necart-type par Maison =\n{grouped_std_custom}")
 
-    mean_per_house = filtered_data.groupby(house_col).mean()
-    var_inter_house = mean_per_house.var()
-    print(f"\nvariance des moyennes =\n{var_inter_house}")
+    # mean_std = filtered_data.groupby(house_col).mean()
+    # print(f"\nvariance des moyennes =\n{mean_per_house}")
 
-    cv = grouped_std / mean_per_house
-    print(f"\ncoeff de variation =\n{cv}")
+    cv = grouped_std / mean_std
+    # print(f"\ncoeff de variation =\n{cv}")
 
     variation_metrics = pd.DataFrame({
         "Std_Dev": cv.std(),
         "Range":cv.max() - cv.min(),
     })
-    print(f"\nVariation metrics = \n{variation_metrics}")
+    # print(f"\nVariation metrics = \n{variation_metrics}")
 
     sorted_variations = variation_metrics.sort_values(by="Std_Dev")
-    print(f"variations metrics triées croissant :\n{sorted_variations}")
+    # print(f"\nvariations metrics triées croissant :\n{sorted_variations}")
 
+# ---- HISTOGRAMME THREE BEST --------------------------------
     most_homogenous_subjects = sorted_variations.index[:3]
-    print(f"\nmatières les plus homogènes =\n{most_homogenous_subjects}")
-
-    norm_data = filtered_data.copy()
-    for subject in most_homogenous_subjects:
-        norm_data[subject] = round(subjects_norm[subject] * 100, 2)
-
-    print(norm_data)
-    # index_norm_data = pd.concat([data["Index"], filtered_data], axis=1)
+    print("\nmatières les plus homogènes =")
+    for i in most_homogenous_subjects:
+        print(i)
 
     # Définition de la grille de subplots
-    number_homo_subjects = len(most_homogenous_subjects)
+    nb_homogenous_subjects = len(most_homogenous_subjects)
     cols = 5  # Nombre de colonnes dans la mosaïque
-    rows = (number_homo_subjects // cols) + (number_homo_subjects % cols > 0)
+    rows = (nb_homogenous_subjects // cols) + (nb_homogenous_subjects % cols > 0)
     fig, axes = plt.subplots(rows, cols, figsize=(10, 5), sharey=True)
     axes = axes.flatten()
 
@@ -354,26 +377,60 @@ def viz_histogram(data: pd.DataFrame) -> None:
 
         # Parcourir chaque maison
         for house, color in house_colors_new.items():
-            house_data = normalized_data[normalized_data[house_col] == house][subject]
-            ax.hist(house_data, bins=bins, alpha=0.5, label=house, color=color, edgecolor="black")
+            house_data = norm_data[norm_data[house_col] == house][subject]
+            ax.hist(
+                house_data, bins=bins, alpha=0.5,
+                label=house, color=color, edgecolor="black",
+                )
 
         # Configuration du graphique
         ax.set_title(subject)
         ax.set_xlabel("Plages de notes (%)")
         ax.set_ylabel("Nombre d'élèves")
 
-    # Supprimer les axes vides (si le nombre de matières ne remplit pas la grille)
+    # Supprimer les axes vides (si le nb de matières ne remplit pas la grille)
     for j in range(idx + 1, len(axes)):
         fig.delaxes(axes[j])
 
     # Légende et affichage
     fig.suptitle("Distribution des notes des 3 matières les plus homogènes")
-    plt.legend(title="Maison", loc="upper right")  #, bbox_to_anchor=(1.2, 1))
+    plt.legend(title="Maison", loc="upper right", bbox_to_anchor=(1.2, 1))
     plt.tight_layout(rect=[0, 0, 1, 0.96])  # Ajuste la disposition
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
-    plt.savefig("output.png")
+    plt.savefig("hist_threebest.png")
     plt.show()
+# ---- HISTOGRAMME THREE BEST FIN ----------------------------
 
+# ---- HISTOGRAMME UNIQUE ------------------------------------
+    best_subject = sorted_variations.index[0]
+    print(f"\nmatière la plus homogène =\n{best_subject}")
+
+    plt.figure(figsize=(10, 6))
+
+    # Histogramme empilé par maison
+    bins = np.linspace(0, 100, 11)  # Plages de notes de 10 en 10
+
+    # Parcourir chaque maison
+    for house, color in house_colors_new.items():
+        house_data = norm_data[norm_data[house_col] == house][best_subject]
+        plt.hist(
+            house_data, bins=bins, alpha=0.5,
+            label=house, color=color, edgecolor="black",
+            )
+
+    # Légende
+    plt.title(f"Distribution des notes - {best_subject}")
+    plt.xlabel("Plages de notes (%)")
+    plt.ylabel("Nombre d'élèves")
+    plt.legend(title="Maison")
+    plt.grid(axis="y", linestyle="--", alpha=0.7)
+
+    # Affichage
+    plt.tight_layout()
+    fig = plt.gcf()
+    fig.canvas.mpl_connect("key_press_event", close_on_enter)
+    plt.savefig("hist_unique.png")
+    plt.show()
 
 def load(path: str) -> pd.DataFrame:
     """Load a file.csv and return a dataset."""

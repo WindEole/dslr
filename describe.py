@@ -13,7 +13,7 @@ import tarfile
 import pandas as pd
 
 
-def ft_maximum(val: pd.Series) -> float:
+def ft_max(val: pd.Series) -> float:
     """Determine the maximum value of a dataset."""
     if not val.empty:  # s'il y a des valeurs non-nulles
         tmp_max = val.iloc[0]  # on initialise avec la première valeur
@@ -53,7 +53,7 @@ def ft_percentile(rank: float, val: pd.Series, count: float) -> float:
     return sort_val.iloc[index_low] * low + sort_val.iloc[index_high] * high
 
 
-def ft_minimum(val: pd.Series) -> float:
+def ft_min(val: pd.Series) -> float:
     """Determine the minimum value of a dataset."""
     if not val.empty:  # s'il y a des valeurs non-nulles
         tmp_min = val.iloc[0]  # on initialise avec la première valeur
@@ -64,7 +64,7 @@ def ft_minimum(val: pd.Series) -> float:
     return None  # S'il n'y a pas de valeurs non-nulles
 
 
-def ft_standard_deviation(val: pd.Series, mean: float, count: float) -> float:
+def ft_std(val: pd.Series, mean: float, count: float) -> float:
     """Calculate the standard deviation of a serie of values."""
     if not val.empty:
         diff_mean_val = val - mean  # difference par rapport à la moyenne
@@ -76,11 +76,22 @@ def ft_standard_deviation(val: pd.Series, mean: float, count: float) -> float:
     return None
 
 
-def ft_moyenne(val: pd.Series, count: float) -> float:
+def ft_mean(val: pd.Series, count: float) -> float:
     """Calculate the mean of all values."""
     if not val.empty:
         return sum(val) / count
     return None
+
+
+def ft_count(val: pd.DataFrame) -> dict:
+    """Count the number of non null values."""
+    count_values = {}
+    for column in val.columns:
+        non_null_count = sum(
+            1 for value in val[column] if not pd.isna(value)
+        )
+        count_values[column] = non_null_count
+    return count_values
 
 
 def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
@@ -136,12 +147,7 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
         return
 
     # 1) COUNT = nb d'observations non nulles
-    count_values = {}
-    for column in num_data.columns:
-        non_null_count = sum(
-            1 for value in num_data[column] if not pd.isna(value)
-        )
-        count_values[column] = non_null_count
+    count_values = ft_count(num_data)
 
     # 2) MEAN / STD / MIN / PERCENTILES / MAX
     mean_values = {}
@@ -154,15 +160,15 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
     for col in num_data.columns:
         # Exclure les valeurs nulles pour le calcul du min
         non_null_values = num_data[~num_data[col].isna()][col]
-        mean_values[col] = ft_moyenne(non_null_values, count_values[col])
-        std_values[col] = ft_standard_deviation(
+        mean_values[col] = ft_mean(non_null_values, count_values[col])
+        std_values[col] = ft_std(
             non_null_values, mean_values[col], count_values[col],
         )
-        min_values[col] = ft_minimum(non_null_values)
+        min_values[col] = ft_min(non_null_values)
         perc_25[col] = ft_percentile(25, non_null_values, count_values[col])
         perc_50[col] = ft_percentile(50, non_null_values, count_values[col])
         perc_75[col] = ft_percentile(75, non_null_values, count_values[col])
-        max_values[col] = ft_maximum(non_null_values)
+        max_values[col] = ft_max(non_null_values)
 
     # IMPRESSION FINALE -------------------------------------------------------
     print("\033[91m\nCi-dessous : ma fonction ft_describe :\033[0m")
