@@ -10,18 +10,20 @@ import shutil
 import sys
 import tarfile
 
+import numpy as np
 import pandas as pd
 
 
-def ft_max(val: pd.Series) -> float:
-    """Determine the maximum value of a dataset."""
-    if not val.empty:  # s'il y a des valeurs non-nulles
-        tmp_max = val.iloc[0]  # on initialise avec la première valeur
-        for value in val.iloc[1:]:
-            if value > tmp_max:
-                tmp_max = value
-        return tmp_max
-    return None  # S'il n'y a pas de valeurs non-nulles
+# def ft_max(val: pd.Series) -> float:
+#     """Determine the maximum value of a dataset."""
+#     if not val.empty:  # s'il y a des valeurs non-nulles
+#         tmp_max = val.iloc[0]  # on initialise avec la première valeur
+#         for value in val.iloc[1:]:
+#             if value > tmp_max:
+#                 tmp_max = value
+#         return tmp_max
+#     return None  # S'il n'y a pas de valeurs non-nulles
+
 
 
 def ft_percentile(rank: float, val: pd.Series, count: float) -> float:
@@ -53,45 +55,232 @@ def ft_percentile(rank: float, val: pd.Series, count: float) -> float:
     return sort_val.iloc[index_low] * low + sort_val.iloc[index_high] * high
 
 
-def ft_min(val: pd.Series) -> float:
+# def ft_min(val: pd.Series) -> float:
+#     """Determine the minimum value of a dataset."""
+#     if not val.empty:  # s'il y a des valeurs non-nulles
+#         tmp_min = val.iloc[0]  # on initialise avec la première valeur
+#         for value in val.iloc[1:]:
+#             if value < tmp_min:
+#                 tmp_min = value
+#         return tmp_min
+#     return None  # S'il n'y a pas de valeurs non-nulles
+
+
+# def ft_std(val: any, mean: any, count: any) -> float:
+#     """Calculate the standard deviation of a serie of values.
+
+#     Parameter:
+#         val: a pd.Series or ad DataFrameGroupBy object
+#         mean: a float or a DataFrame
+#         count: a int/float or a DataFrame
+#     Returns:
+#         if val is pd.Series, mean & count = float -> float
+#         if val is DataFrameGroupBy -> dict to DataFrame with group names as
+#         keys and a sub-dict of columns standard deviation (float) as values
+#     """
+#     if isinstance(val, pd.Series):
+#         if not val.empty:
+#             diff_mean_val = val - mean  # difference par rapport à la moyenne
+#             square_diff = diff_mean_val ** 2  # carré des différences
+#             somme_square_diff = square_diff.sum()  # somme des carrés
+#             variance = somme_square_diff / (count - 1)  # diviser par count - 1
+#         return math.sqrt(variance)
+#     elif isinstance(val, pd.core.groupby.DataFrameGroupBy):
+#         std_values = {}
+#         for group_name, group_df in val:
+#             num_columns = group_df.select_dtypes(include=[np.number])
+#             diff_mean_val = num_columns - mean.loc[group_name]
+#             square_diff = diff_mean_val ** 2 
+#             somme_square_diff = square_diff.sum()
+#             variance = somme_square_diff / (count.loc[group_name] - 1)
+#             std_values[group_name] = variance.apply(np.sqrt)
+#         return pd.DataFrame(std_values).T
+#     else:
+#         raise TypeError("Input must be a Series or DataFrameGroupBy")
+
+
+def ft_std(val: any) -> float:
+    """Calculate the standard deviation of a serie of values.
+
+    Parameter:
+        val: a pd.Series or ad DataFrameGroupBy object
+        mean: a float or a DataFrame
+        count: a int/float or a DataFrame
+    Returns:
+        if val is pd.Series, mean & count = float -> float
+        if val is DataFrameGroupBy -> dict to DataFrame with group names as
+        keys and a sub-dict of columns standard deviation (float) as values
+    """
+    if isinstance(val, pd.DataFrame):
+        std_values = {}
+        mean = ft_mean(val)
+        count = ft_count(val)
+        for col in val.columns:
+            non_null_values = val[col].dropna()
+            if not non_null_values.empty:
+                diff_mean_val = non_null_values - mean[col]  # difference par rapport à la moyenne
+                square_diff = diff_mean_val ** 2  # carré des différences
+                somme_square_diff = square_diff.sum()  # somme des carrés
+                variance = somme_square_diff / (count[col] - 1) if count[col] > 1 else 0  # diviser par count - 1
+                std_values[col] = math.sqrt(variance)
+            else:
+                std_values[col] = None
+        return std_values
+    elif isinstance(val, pd.core.groupby.DataFrameGroupBy):
+        std_values = {}
+        mean_values = ft_mean(val)
+        count_values = ft_count(val)
+        for group_name, group_df in val:
+            num_columns = group_df.select_dtypes(include=[np.number])
+            mean = mean_values.loc[group_name]
+            count = count_values.loc[group_name]
+            diff_mean_val = num_columns - mean
+            square_diff = diff_mean_val ** 2
+            somme_square_diff = square_diff.sum()
+            variance = somme_square_diff / (count - 1)
+            std_values[group_name] = variance.apply(np.sqrt)
+        return pd.DataFrame(std_values).T
+    else:
+        raise TypeError("Input must be a DataFrame or DataFrameGroupBy")
+
+
+def ft_max(val: any) -> float:
+    """Determine the maximum value in a dataframe."""
+    if isinstance(val, pd.DataFrame):
+        max_values = {}
+        for col in val.columns:
+            non_null_values = val[col].dropna()
+            if not non_null_values.empty:
+                tmp_max = non_null_values.iloc[0]  # on initialise avec la première valeur
+                for value in non_null_values.iloc[1:]:
+                    if value > tmp_max:
+                        tmp_max = value
+                max_values[col] = tmp_max
+            else:
+                max_values[col] = None
+        return max_values
+    elif isinstance(val, pd.Series):
+        if not val.empty:  # s'il y a des valeurs non-nulles
+            tmp_max = val.iloc[0]  # on initialise avec la première valeur
+            for value in val.iloc[1:]:
+                if value > tmp_max:
+                    tmp_max = value
+            return tmp_max
+        return None  # S'il n'y a pas de valeurs non-nulles
+    else:
+        raise TypeError("Input must be a Series or DataFrame")
+
+
+def ft_min(val: any) -> float:
     """Determine the minimum value of a dataset."""
-    if not val.empty:  # s'il y a des valeurs non-nulles
-        tmp_min = val.iloc[0]  # on initialise avec la première valeur
-        for value in val.iloc[1:]:
-            if value < tmp_min:
-                tmp_min = value
-        return tmp_min
-    return None  # S'il n'y a pas de valeurs non-nulles
+    if isinstance(val, pd.DataFrame):
+        min_values = {}
+        for col in val.columns:
+            non_null_values = val[col].dropna()
+            if not non_null_values.empty:
+                tmp_min = non_null_values.iloc[0]  # on initialise avec la première valeur
+                for value in non_null_values.iloc[1:]:
+                    if value < tmp_min:
+                        tmp_min = value
+                min_values[col] = tmp_min
+            else:
+                min_values[col] = None
+        return min_values
+    elif isinstance(val, pd.Series):
+        if not val.empty:  # s'il y a des valeurs non-nulles
+            tmp_min = val.iloc[0]  # on initialise avec la première valeur
+            for value in val.iloc[1:]:
+                if value < tmp_min:
+                    tmp_min = value
+            return tmp_min
+        return None  # S'il n'y a pas de valeurs non-nulles
+    else:
+        raise TypeError("Input must be a Series or DataFrame")
 
 
-def ft_std(val: pd.Series, mean: float, count: float) -> float:
-    """Calculate the standard deviation of a serie of values."""
-    if not val.empty:
-        diff_mean_val = val - mean  # difference par rapport à la moyenne
-        square_diff = diff_mean_val ** 2  # carré des différences
-        somme_square_diff = square_diff.sum()  # somme des carrés
-        variance = somme_square_diff / (count - 1)  # diviser par count - 1
-        std_dev = math.sqrt(variance)
-        return std_dev
-    return None
+# def ft_mean(val: any, count: any) -> float:
+#     """Calculate the mean of all values.
+
+#     Parameter:
+#         val: a pd.Series or a DataFrameGroupBy object
+#         count: a int/float or a DataFrame
+#     Returns:
+#         if val is a pd.Series -> float (moyenne)
+#         if val is a DataFrameGroupBy -> dict to dataFrame with group names as
+#         keys and a sub-dict of columns means (float) as values
+#     """
+#     if isinstance(val, pd.Series):
+#         if not val.empty:
+#             return sum(val) / count
+#         return None
+#     elif isinstance(val, pd.core.groupby.DataFrameGroupBy) and isinstance(count, pd.DataFrame):
+#         mean_values = {}
+#         for group_name, group_df in val:
+#             num_columns = group_df.select_dtypes(include=[np.number])
+#             mean_values[group_name] = num_columns.sum() / count.loc[group_name]
+#         return pd.DataFrame(mean_values).T
+#     else:
+#         raise TypeError("Invalid input types for val or count.")
 
 
-def ft_mean(val: pd.Series, count: float) -> float:
-    """Calculate the mean of all values."""
-    if not val.empty:
-        return sum(val) / count
-    return None
+def ft_mean(val: any) -> any:
+    """Calculate the mean of all values.
+
+    Parameter:
+        val: a DataFrame or a DataFrameGroupBy object
+    Returns:
+        if val is a DataFrame -> dict
+        if val is a DataFrameGroupBy -> dict to dataFrame with group names as
+        keys and a sub-dict of columns means (float) as values
+    """
+    if isinstance(val, pd.DataFrame):
+        mean_values = {}
+        for col in val.columns:
+            non_null_values = val[col].dropna()
+            if not non_null_values.empty:
+                mean_values[col] = non_null_values.sum() / len(non_null_values)
+            else:
+                mean_values[col] = None  # gestion des colonnes vides
+        return mean_values
+    elif isinstance(val, pd.core.groupby.DataFrameGroupBy):
+        mean_values = {}
+        for group_name, group_df in val:
+            count = ft_count(val)
+            # print(f"count de group_df =\n{count}")
+            # print(f"group names =\n{group_name}")
+            num_columns = group_df.select_dtypes(include=[np.number])
+            mean_values[group_name] = num_columns.sum() / count.loc[group_name]
+        return pd.DataFrame(mean_values).T
+    else:
+        raise TypeError("Invalid input types for val or count.")
 
 
-def ft_count(val: pd.DataFrame) -> dict:
-    """Count the number of non null values."""
-    count_values = {}
-    for column in val.columns:
-        non_null_count = sum(
-            1 for value in val[column] if not pd.isna(value)
-        )
-        count_values[column] = non_null_count
-    return count_values
+def ft_count(val: any) -> pd.DataFrame:
+    """Count the number of non null values.
+
+    Parameter:
+        val: a DataFrame or a DataFrameGroupBy object
+    Returns:
+        if val is a DataFrame -> dictionary of columns counts
+        if val is a DataFrameGroupBy -> dict (to dataFrame) with group names
+        as keys and a sub-dictionnary of column counts as values
+    """
+    if isinstance(val, pd.DataFrame):
+        count_values = {}
+        for column in val.columns:
+            non_null_count = sum(
+                1 for value in val[column] if not pd.isna(value)
+            )
+            count_values[column] = non_null_count
+        return count_values
+    elif isinstance(val, pd.core.groupby.DataFrameGroupBy):
+        count_values = {
+            group_name: group_df.notna().sum()
+            for group_name, group_df in val
+        }
+        return pd.DataFrame(count_values).T
+    else:
+        raise TypeError("Input must be a DataFrame or a DataFrameGroupBy object")
 
 
 def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
@@ -117,6 +306,7 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
     """
     # On sélectionne uniquement les colonnes numériques
     num_data = data.select_dtypes(include=["number"])
+    # print(num_data.std())
 
 # -----------
     print("\033[91mCi-dessous : la fonction describe officielle :\033[0m")
@@ -149,26 +339,32 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
     # 1) COUNT = nb d'observations non nulles
     count_values = ft_count(num_data)
 
+    # std_values_test = ft_std(num_data)
+    # print(f"std_values direct =\n{std_values_test}")
     # 2) MEAN / STD / MIN / PERCENTILES / MAX
-    mean_values = {}
-    std_values = {}
+    mean_values = ft_mean(num_data)
+    std_values = ft_std(num_data)
+    max_values = ft_max(num_data)
+    print(f"max_value custom =\n{max_values}")
+    # mean_values = {}
+    # std_values = {}
     min_values = {}
     perc_25 = {}
     perc_50 = {}
     perc_75 = {}
-    max_values = {}
+    # max_values = {}
     for col in num_data.columns:
         # Exclure les valeurs nulles pour le calcul du min
         non_null_values = num_data[~num_data[col].isna()][col]
-        mean_values[col] = ft_mean(non_null_values, count_values[col])
-        std_values[col] = ft_std(
-            non_null_values, mean_values[col], count_values[col],
-        )
+        # mean_values[col] = ft_mean(non_null_values, count_values[col])
+        # std_values[col] = ft_std(
+        #     non_null_values, mean_values[col], count_values[col],
+        # )
         min_values[col] = ft_min(non_null_values)
         perc_25[col] = ft_percentile(25, non_null_values, count_values[col])
         perc_50[col] = ft_percentile(50, non_null_values, count_values[col])
         perc_75[col] = ft_percentile(75, non_null_values, count_values[col])
-        max_values[col] = ft_max(non_null_values)
+        # max_values[col] = ft_max(non_null_values)
 
     # IMPRESSION FINALE -------------------------------------------------------
     print("\033[91m\nCi-dessous : ma fonction ft_describe :\033[0m")

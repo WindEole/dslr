@@ -46,13 +46,8 @@ def normalize_data(data: pd.DataFrame) -> pd.Series:
         axis=1,
         errors="ignore")
     # On Normalise les notes (trop disparates !) min-max
-    subjects_min = {}
-    subjects_max = {}
-    for col in subjects.columns:
-        non_null_values = subjects[~subjects[col].isna()][col]
-        subjects_min[col] = ft_min(non_null_values)
-        subjects_max[col] = ft_max(non_null_values)
-
+    subjects_max = ft_max(subjects)
+    subjects_min = ft_min(subjects)
     s_min_series = pd.Series(subjects_min)
     s_max_series = pd.Series(subjects_max)
     subjects_norm = (subjects - s_min_series) / (s_max_series - s_min_series)
@@ -309,46 +304,49 @@ def viz_histogram(data: pd.DataFrame) -> None:
     plt.show()
 # ----- HISTOGRAMME MOSAIQUE FIN -----------------------------
 
-    # ATTENTION : REMANIER FT_COUNT !!! Ca fonctionne pas ! ou faire un manuel
+    print(f"\nfiltered_data = \n{filtered_data}")
 
+    # COUNT de chaque maison
+    # grouped_count_officiel = filtered_data.groupby(house_col).count()
+    # print(f"\ncount std =\n{grouped_count_officiel}")
     grouped_count = ft_count(filtered_data.groupby(house_col))
-    print(f"\ncount =\n{grouped_count}")
+    print(f"\ncount custom=\n{grouped_count}")
 
-    grouped_mean = filtered_data.groupby(house_col).mean()
-    print(f"\nvariance des moyennes =\n{grouped_mean}")
-    grouped_mean_custom = {
-        group_name: {
-            col: ft_mean(group_df(col), grouped_count[group_name][house_col])
-            for col in group_df.columns
-        }
-        for group_name, group_df in filtered_data.groupby(house_col)
-    }
-    print(f"\nvariance des moyennes =\n{grouped_mean_custom}")
+    # MEAN de chaque maison
+    # grouped_mean_officiel = filtered_data.groupby(house_col).mean()
+    # print(f"\nmoyennes std =\n{grouped_mean_officiel}")
+    grouped_mean = ft_mean(filtered_data.groupby(house_col))  #, grouped_count)
+    print(f"\nmoyennes custom =\n{grouped_mean}")
 
-    grouped_std = filtered_data.groupby(house_col).std()
+    # STD de chaque maison
+    # grouped_std_officiel = filtered_data.groupby(house_col).std()
+    # print(f"\necart-type par Maison =\n{grouped_std_officiel}")
+    grouped_std = ft_std(filtered_data.groupby(house_col))  #, grouped_mean, grouped_count)
     print(f"\necart-type par Maison =\n{grouped_std}")
-    grouped_std_custom = {
-        group_name: {
-            col: ft_std(
-                group_df[col],
-                grouped_mean_custom[group_name][col],
-                grouped_count[group_name][col]
-            )
-            for col in group_df.columns
-        }
-        for group_name, group_df in filtered_data.groupby(house_col)
-    }
-    print(f"\necart-type par Maison =\n{grouped_std_custom}")
 
-    # mean_std = filtered_data.groupby(house_col).mean()
-    # print(f"\nvariance des moyennes =\n{mean_per_house}")
-
-    cv = grouped_std / mean_std
+    # COEFF DE VARIATION
+    # cv_officiel = grouped_std_officiel / grouped_mean_officiel
     # print(f"\ncoeff de variation =\n{cv}")
+    cv = grouped_std / grouped_mean
+    print(f"\ncoeff de var custom =\n{cv}")
+
+    # STATS SUR COEFF DE VARIATION
+    # cv_count = ft_count(cv)
+    # cv_mean = ft_mean(cv)
+    cv_std = ft_std(cv)
+    cv_max = ft_max(cv)
+    cv_min = ft_min(cv)
+    print(f"cv max = \n{cv_max}\ncv min = \n{cv_min}")
+    range_values = {
+        key: (cv_max[key] - cv_min[key])
+        for key in cv_max.keys() & cv_min.keys()
+        if cv_max[key] is not None and cv_min[key] is not None
+    }
 
     variation_metrics = pd.DataFrame({
-        "Std_Dev": cv.std(),
-        "Range":cv.max() - cv.min(),
+        "Std_Dev": cv_std,
+        # "Range":cv.max() - cv.min(),
+        "Range": range_values,
     })
     # print(f"\nVariation metrics = \n{variation_metrics}")
 
