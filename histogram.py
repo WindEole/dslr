@@ -80,7 +80,6 @@ def viz_histogram(data: pd.DataFrame) -> None:
     # On regroupe par maison
     grouped_data = filtered_data.groupby(house_col)
 
-
     rank = 100
     percentiles = calcul_perc(grouped_data, subjects_norm, rank)
     percentiles_75 = calcul_perc(grouped_data, subjects_norm, 75)
@@ -291,14 +290,14 @@ def viz_histogram(data: pd.DataFrame) -> None:
         ax.set_xlabel("Plages de notes (%)")
         ax.set_ylabel("Nombre d'élèves")
 
-    # Supprimer les axes vides (si le nombre de matières ne remplit pas la grille)
+    # Supprimer les axes vides (si le nb de matières ne remplit pas la grille)
     for j in range(idx + 1, len(axes)):
         fig.delaxes(axes[j])
 
     # Légende et affichage
     fig.suptitle("Distribution des notes par matière et par maison")
-    plt.legend(title="Maison", loc="upper right", bbox_to_anchor=(1.2, 1))
     plt.tight_layout(rect=[0, 0, 1, 0.96])  # Ajuste la disposition
+    plt.legend(title="Maison", loc="center right", bbox_to_anchor=(2, 0.5))
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
     plt.savefig("hist_mosaique.png")
     plt.show()
@@ -315,13 +314,13 @@ def viz_histogram(data: pd.DataFrame) -> None:
     # MEAN de chaque maison
     # grouped_mean_officiel = filtered_data.groupby(house_col).mean()
     # print(f"\nmoyennes std =\n{grouped_mean_officiel}")
-    grouped_mean = ft_mean(filtered_data.groupby(house_col))  #, grouped_count)
+    grouped_mean = ft_mean(filtered_data.groupby(house_col))
     print(f"\nmoyennes custom =\n{grouped_mean}")
 
     # STD de chaque maison
     # grouped_std_officiel = filtered_data.groupby(house_col).std()
     # print(f"\necart-type par Maison =\n{grouped_std_officiel}")
-    grouped_std = ft_std(filtered_data.groupby(house_col))  #, grouped_mean, grouped_count)
+    grouped_std = ft_std(filtered_data.groupby(house_col))
     print(f"\necart-type par Maison =\n{grouped_std}")
 
     # COEFF DE VARIATION
@@ -336,7 +335,7 @@ def viz_histogram(data: pd.DataFrame) -> None:
     cv_std = ft_std(cv)
     cv_max = ft_max(cv)
     cv_min = ft_min(cv)
-    print(f"cv max = \n{cv_max}\ncv min = \n{cv_min}")
+    # print(f"cv max = \n{cv_max}\ncv min = \n{cv_min}")
     range_values = {
         key: (cv_max[key] - cv_min[key])
         for key in cv_max.keys() & cv_min.keys()
@@ -354,20 +353,20 @@ def viz_histogram(data: pd.DataFrame) -> None:
     # print(f"\nvariations metrics triées croissant :\n{sorted_variations}")
 
 # ---- HISTOGRAMME THREE BEST --------------------------------
-    most_homogenous_subjects = sorted_variations.index[:3]
+    most_homogen_subjects = sorted_variations.index[:3]
     print("\nmatières les plus homogènes =")
-    for i in most_homogenous_subjects:
+    for i in most_homogen_subjects:
         print(i)
 
     # Définition de la grille de subplots
-    nb_homogenous_subjects = len(most_homogenous_subjects)
+    nb_homogen_subjects = len(most_homogen_subjects)
     cols = 5  # Nombre de colonnes dans la mosaïque
-    rows = (nb_homogenous_subjects // cols) + (nb_homogenous_subjects % cols > 0)
-    fig, axes = plt.subplots(rows, cols, figsize=(10, 5), sharey=True)
+    rows = (nb_homogen_subjects // cols) + (nb_homogen_subjects % cols > 0)
+    fig, axes = plt.subplots(rows, cols, figsize=(10, 4), sharey=True)
     axes = axes.flatten()
 
     # Créer des histogrammes pour chaque matière
-    for idx, subject in enumerate(most_homogenous_subjects):
+    for idx, subject in enumerate(most_homogen_subjects):
         ax = axes[idx]
 
         # Histogrammes empilés par maison pour chaque plage de notes
@@ -392,8 +391,8 @@ def viz_histogram(data: pd.DataFrame) -> None:
 
     # Légende et affichage
     fig.suptitle("Distribution des notes des 3 matières les plus homogènes")
-    plt.legend(title="Maison", loc="upper right", bbox_to_anchor=(1.2, 1))
     plt.tight_layout(rect=[0, 0, 1, 0.96])  # Ajuste la disposition
+    plt.legend(title="Maison", loc="center right", bbox_to_anchor=(2.5, 0.5))
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
     plt.savefig("hist_threebest.png")
     plt.show()
@@ -429,6 +428,7 @@ def viz_histogram(data: pd.DataFrame) -> None:
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
     plt.savefig("hist_unique.png")
     plt.show()
+
 
 def load(path: str) -> pd.DataFrame:
     """Load a file.csv and return a dataset."""

@@ -178,7 +178,7 @@ def ft_min(val: any) -> float:
         for col in val.columns:
             non_null_values = val[col].dropna()
             if not non_null_values.empty:
-                tmp_min = non_null_values.iloc[0]  # on initialise avec la première valeur
+                tmp_min = non_null_values.iloc[0]  # init avec la 1ere valeur
                 for value in non_null_values.iloc[1:]:
                     if value < tmp_min:
                         tmp_min = value
@@ -339,16 +339,16 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
     # 1) COUNT = nb d'observations non nulles
     count_values = ft_count(num_data)
 
-    # std_values_test = ft_std(num_data)
-    # print(f"std_values direct =\n{std_values_test}")
-    # 2) MEAN / STD / MIN / PERCENTILES / MAX
+    # 2) MEAN / STD / MIN / MAX
     mean_values = ft_mean(num_data)
     std_values = ft_std(num_data)
+    min_values = ft_min(num_data)
     max_values = ft_max(num_data)
-    print(f"max_value custom =\n{max_values}")
+
+    # 3) PERCENTILES
     # mean_values = {}
     # std_values = {}
-    min_values = {}
+    # min_values = {}
     perc_25 = {}
     perc_50 = {}
     perc_75 = {}
@@ -360,7 +360,7 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
         # std_values[col] = ft_std(
         #     non_null_values, mean_values[col], count_values[col],
         # )
-        min_values[col] = ft_min(non_null_values)
+        # min_values[col] = ft_min(non_null_values)
         perc_25[col] = ft_percentile(25, non_null_values, count_values[col])
         perc_50[col] = ft_percentile(50, non_null_values, count_values[col])
         perc_75[col] = ft_percentile(75, non_null_values, count_values[col])
