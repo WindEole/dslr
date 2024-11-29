@@ -3,7 +3,6 @@
 Ce programme ouvre un fichier de données compressées au format .tgz et
 génère des statistiques descriptives à partir des données.
 """
-
 import math
 import os.path
 import shutil
@@ -12,18 +11,6 @@ import tarfile
 
 import numpy as np
 import pandas as pd
-
-
-# def ft_max(val: pd.Series) -> float:
-#     """Determine the maximum value of a dataset."""
-#     if not val.empty:  # s'il y a des valeurs non-nulles
-#         tmp_max = val.iloc[0]  # on initialise avec la première valeur
-#         for value in val.iloc[1:]:
-#             if value > tmp_max:
-#                 tmp_max = value
-#         return tmp_max
-#     return None  # S'il n'y a pas de valeurs non-nulles
-
 
 
 def ft_percentile(rank: float, val: pd.Series, count: float) -> float:
@@ -53,50 +40,6 @@ def ft_percentile(rank: float, val: pd.Series, count: float) -> float:
 
     # Calculer le percentile en pondérant les valeurs inférieure et supérieure
     return sort_val.iloc[index_low] * low + sort_val.iloc[index_high] * high
-
-
-# def ft_min(val: pd.Series) -> float:
-#     """Determine the minimum value of a dataset."""
-#     if not val.empty:  # s'il y a des valeurs non-nulles
-#         tmp_min = val.iloc[0]  # on initialise avec la première valeur
-#         for value in val.iloc[1:]:
-#             if value < tmp_min:
-#                 tmp_min = value
-#         return tmp_min
-#     return None  # S'il n'y a pas de valeurs non-nulles
-
-
-# def ft_std(val: any, mean: any, count: any) -> float:
-#     """Calculate the standard deviation of a serie of values.
-
-#     Parameter:
-#         val: a pd.Series or ad DataFrameGroupBy object
-#         mean: a float or a DataFrame
-#         count: a int/float or a DataFrame
-#     Returns:
-#         if val is pd.Series, mean & count = float -> float
-#         if val is DataFrameGroupBy -> dict to DataFrame with group names as
-#         keys and a sub-dict of columns standard deviation (float) as values
-#     """
-#     if isinstance(val, pd.Series):
-#         if not val.empty:
-#             diff_mean_val = val - mean  # difference par rapport à la moyenne
-#             square_diff = diff_mean_val ** 2  # carré des différences
-#             somme_square_diff = square_diff.sum()  # somme des carrés
-#             variance = somme_square_diff / (count - 1)  # diviser par count - 1
-#         return math.sqrt(variance)
-#     elif isinstance(val, pd.core.groupby.DataFrameGroupBy):
-#         std_values = {}
-#         for group_name, group_df in val:
-#             num_columns = group_df.select_dtypes(include=[np.number])
-#             diff_mean_val = num_columns - mean.loc[group_name]
-#             square_diff = diff_mean_val ** 2 
-#             somme_square_diff = square_diff.sum()
-#             variance = somme_square_diff / (count.loc[group_name] - 1)
-#             std_values[group_name] = variance.apply(np.sqrt)
-#         return pd.DataFrame(std_values).T
-#     else:
-#         raise TypeError("Input must be a Series or DataFrameGroupBy")
 
 
 def ft_std(val: any) -> float:
@@ -198,31 +141,6 @@ def ft_min(val: any) -> float:
         raise TypeError("Input must be a Series or DataFrame")
 
 
-# def ft_mean(val: any, count: any) -> float:
-#     """Calculate the mean of all values.
-
-#     Parameter:
-#         val: a pd.Series or a DataFrameGroupBy object
-#         count: a int/float or a DataFrame
-#     Returns:
-#         if val is a pd.Series -> float (moyenne)
-#         if val is a DataFrameGroupBy -> dict to dataFrame with group names as
-#         keys and a sub-dict of columns means (float) as values
-#     """
-#     if isinstance(val, pd.Series):
-#         if not val.empty:
-#             return sum(val) / count
-#         return None
-#     elif isinstance(val, pd.core.groupby.DataFrameGroupBy) and isinstance(count, pd.DataFrame):
-#         mean_values = {}
-#         for group_name, group_df in val:
-#             num_columns = group_df.select_dtypes(include=[np.number])
-#             mean_values[group_name] = num_columns.sum() / count.loc[group_name]
-#         return pd.DataFrame(mean_values).T
-#     else:
-#         raise TypeError("Invalid input types for val or count.")
-
-
 def ft_mean(val: any) -> any:
     """Calculate the mean of all values.
 
@@ -246,8 +164,6 @@ def ft_mean(val: any) -> any:
         mean_values = {}
         for group_name, group_df in val:
             count = ft_count(val)
-            # print(f"count de group_df =\n{count}")
-            # print(f"group names =\n{group_name}")
             num_columns = group_df.select_dtypes(include=[np.number])
             mean_values[group_name] = num_columns.sum() / count.loc[group_name]
         return pd.DataFrame(mean_values).T
@@ -306,7 +222,6 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
     """
     # On sélectionne uniquement les colonnes numériques
     num_data = data.select_dtypes(include=["number"])
-    # print(num_data.std())
 
 # -----------
     print("\033[91mCi-dessous : la fonction describe officielle :\033[0m")
@@ -346,25 +261,15 @@ def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
     max_values = ft_max(num_data)
 
     # 3) PERCENTILES
-    # mean_values = {}
-    # std_values = {}
-    # min_values = {}
     perc_25 = {}
     perc_50 = {}
     perc_75 = {}
-    # max_values = {}
     for col in num_data.columns:
         # Exclure les valeurs nulles pour le calcul du min
         non_null_values = num_data[~num_data[col].isna()][col]
-        # mean_values[col] = ft_mean(non_null_values, count_values[col])
-        # std_values[col] = ft_std(
-        #     non_null_values, mean_values[col], count_values[col],
-        # )
-        # min_values[col] = ft_min(non_null_values)
         perc_25[col] = ft_percentile(25, non_null_values, count_values[col])
         perc_50[col] = ft_percentile(50, non_null_values, count_values[col])
         perc_75[col] = ft_percentile(75, non_null_values, count_values[col])
-        # max_values[col] = ft_max(non_null_values)
 
     # IMPRESSION FINALE -------------------------------------------------------
     print("\033[91m\nCi-dessous : ma fonction ft_describe :\033[0m")

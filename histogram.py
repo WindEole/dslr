@@ -3,22 +3,151 @@
 Ce programme ouvre un fichier de données compressées au format .tgz et
 génère une visualisation des données sous forme d'histogramme.
 """
-import os.path
 import re
 import sys
-import tarfile
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from describe import ft_max, ft_min, ft_percentile, ft_mean, ft_std, ft_count
+from describe import (
+    extract_tgz,
+    find_file,
+    ft_count,
+    ft_max,
+    ft_mean,
+    ft_min,
+    ft_percentile,
+    ft_std,
+    load,
+)
 
 
 def close_on_enter(event: any) -> None:
     """Close the figure when the Enter key is pressed."""
     if event.key == "enter":  # Si la touche 'Enter' est pressée
         plt.close(event.canvas.figure)  # Ferme la figure associée
+
+
+def hist_best_subject(
+    sorted_variations: pd.DataFrame,
+    house_colors_new: dict,
+    norm_data: pd.DataFrame,
+    house_col: str,
+    ) -> None:
+    best_subject = sorted_variations.index[0]
+    print(f"\nmatière la plus homogène =\n{best_subject}")
+
+    plt.figure(figsize=(10, 6))
+
+    # Histogramme empilé par maison
+    bins = np.linspace(0, 100, 11)  # Plages de notes de 10 en 10
+
+    # Parcourir chaque maison
+    for house, color in house_colors_new.items():
+        house_data = norm_data[norm_data[house_col] == house][best_subject]
+        print(f"\nhouse data dans boucle for :\n{house_data}")
+
+        # Calcul de l'histogramme pour la maison
+        counts, _ = np.histogram(house_data, bins=bins)
+
+        # Conversion en pourcentage
+        total_students = len(house_data)
+        percentages = (counts / total_students) * 100 if total_students > 0 else counts
+
+        # Tracer l'histogramme en mode barres empilées
+        plt.bar(
+            bins[:-1], percentages, width=np.diff(bins), align="edge",
+            label=house, color=color, edgecolor="black", alpha=0.5,
+        )
+        # plt.hist(
+        #     house_data, bins=bins, alpha=0.5,
+        #     label=house, color=color, edgecolor="black",
+        #     )
+
+    # Légende
+    plt.title(f"Distribution des notes - {best_subject} (en %)")
+    plt.xlabel("Plages de notes (%)")
+    plt.ylabel("Pourcentage d'élèves")
+    plt.legend(title="Maison")
+    plt.grid(axis="y", linestyle="--", alpha=0.7)
+
+    # Affichage
+    plt.tight_layout()
+    fig = plt.gcf()
+    fig.canvas.mpl_connect("key_press_event", close_on_enter)
+    plt.savefig("hist_percentage.png")
+    plt.show()
+
+
+def hist_mosaique(
+    subjects: any,
+    house_colors_new: dict,
+    norm_data: pd.DataFrame,
+    house_col: str,
+    ) -> None:
+    """Visualise les données en histogramme mosaïque."""
+    title1 = "Distribution des notes par matière et par maison"
+    title2 = "hist_mosaique_perc.png"
+    if isinstance(subjects, pd.DataFrame):
+        subjects = subjects.index[:3]
+        print("\nmatières les plus homogènes =")
+        for i in subjects:
+            print(i)
+        title1 = "Distribution des notes des 3 matières les plus homogènes"
+        title2 = "hist_threebest.png"
+
+    # Définition de la grille de subplots
+    num_subjects = len(subjects)
+    cols = 5  # Nombre de colonnes dans la mosaïque
+    rows = (num_subjects // cols) + (num_subjects % cols > 0)
+    fig, axes = plt.subplots(rows, cols, figsize=(15, 10), sharey=True)
+    axes = axes.flatten()
+
+    # Créer des histogrammes pour chaque matière
+    for idx, subject in enumerate(subjects):
+        ax = axes[idx]
+
+        # Histogrammes empilés par maison pour chaque plage de notes
+        bins = np.linspace(0, 100, 11)  # Plages de notes de 10 en 10
+
+        # Parcourir chaque maison
+        for house, color in house_colors_new.items():
+            house_data = norm_data[norm_data[house_col] == house][subject]
+
+            # Calcul de l'histogramme
+            counts, _ = np.histogram(house_data, bins=bins)
+            total_students = len(house_data)
+
+            # Conversion en pourcentage
+            percentages = (counts / total_students * 100) if total_students > 0 else counts
+
+            # Tracer les barres empilées
+            ax.bar(
+                bins[:-1], percentages, width=np.diff(bins), align="edge",
+                label=house, color=color, edgecolor="black", alpha=0.5,
+            )
+            # ax.hist(
+            #     house_data, bins=bins, alpha=0.5,
+            #     label=house, color=color, edgecolor="black",
+            #     )
+
+        # Configuration du graphique
+        ax.set_title(subject)
+        ax.set_xlabel("Plages de notes (%)")
+        ax.set_ylabel("Pourcentage d'élèves")
+
+    # Supprimer les axes vides (si le nb de matières ne remplit pas la grille)
+    for j in range(idx + 1, len(axes)):
+        fig.delaxes(axes[j])
+
+    # Légende et affichage
+    fig.suptitle(title1)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Ajuste la disposition
+    plt.legend(title="Maison", loc="center right", bbox_to_anchor=(2, 0.5))
+    fig.canvas.mpl_connect("key_press_event", close_on_enter)
+    plt.savefig(title2)
+    plt.show()
 
 
 def calcul_perc(
@@ -90,7 +219,7 @@ def viz_histogram(data: pd.DataFrame) -> None:
     perc_data = pd.DataFrame(percentiles)
 
     # Calcul de l'effectif minimum parmi les maisons
-    min_effectif = perc_data["Effectif"].min()
+    min_effectif = ft_min(perc_data["Effectif"])
 
     # Création d'une liste des largeurs ajustées (* 0.1 pour ajuster visuelmt)
     perc_data["Adj_Width"] = (perc_data["Effectif"] - min_effectif + 1) * 0.1
@@ -184,7 +313,8 @@ def viz_histogram(data: pd.DataFrame) -> None:
                     height,
                     width=bar_width,
                     # couleur spécifique au segment :
-                    color=percentile_colors[house][k],
+                    # color=percentile_colors[house][k],
+                    color=percentile_colors[house][k] if k > 0 and k < 3 else "w",
                     edgecolor=edge_colors[house],
                     bottom=bottom,  # empiler sur la section précédente
                     # ajouter un label seulement pour la première tranche :
@@ -263,44 +393,8 @@ def viz_histogram(data: pd.DataFrame) -> None:
     for subject in subjects:
         norm_data[subject] = round(subjects_norm[subject] * 100, 2)
 
-    # Définition de la grille de subplots
-    num_subjects = len(subjects)
-    cols = 5  # Nombre de colonnes dans la mosaïque
-    rows = (num_subjects // cols) + (num_subjects % cols > 0)
-    fig, axes = plt.subplots(rows, cols, figsize=(15, 10), sharey=True)
-    axes = axes.flatten()
+    hist_mosaique(subjects, house_colors_new, norm_data, house_col)
 
-    # Créer des histogrammes pour chaque matière
-    for idx, subject in enumerate(subjects):
-        ax = axes[idx]
-
-        # Histogrammes empilés par maison pour chaque plage de notes
-        bins = np.linspace(0, 100, 11)  # Plages de notes de 10 en 10
-
-        # Parcourir chaque maison
-        for house, color in house_colors_new.items():
-            house_data = norm_data[norm_data[house_col] == house][subject]
-            ax.hist(
-                house_data, bins=bins, alpha=0.5,
-                label=house, color=color, edgecolor="black"
-                )
-
-        # Configuration du graphique
-        ax.set_title(subject)
-        ax.set_xlabel("Plages de notes (%)")
-        ax.set_ylabel("Nombre d'élèves")
-
-    # Supprimer les axes vides (si le nb de matières ne remplit pas la grille)
-    for j in range(idx + 1, len(axes)):
-        fig.delaxes(axes[j])
-
-    # Légende et affichage
-    fig.suptitle("Distribution des notes par matière et par maison")
-    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Ajuste la disposition
-    plt.legend(title="Maison", loc="center right", bbox_to_anchor=(2, 0.5))
-    fig.canvas.mpl_connect("key_press_event", close_on_enter)
-    plt.savefig("hist_mosaique.png")
-    plt.show()
 # ----- HISTOGRAMME MOSAIQUE FIN -----------------------------
 
     print(f"\nfiltered_data = \n{filtered_data}")
@@ -330,12 +424,9 @@ def viz_histogram(data: pd.DataFrame) -> None:
     print(f"\ncoeff de var custom =\n{cv}")
 
     # STATS SUR COEFF DE VARIATION
-    # cv_count = ft_count(cv)
-    # cv_mean = ft_mean(cv)
     cv_std = ft_std(cv)
     cv_max = ft_max(cv)
     cv_min = ft_min(cv)
-    # print(f"cv max = \n{cv_max}\ncv min = \n{cv_min}")
     range_values = {
         key: (cv_max[key] - cv_min[key])
         for key in cv_max.keys() & cv_min.keys()
@@ -353,139 +444,10 @@ def viz_histogram(data: pd.DataFrame) -> None:
     # print(f"\nvariations metrics triées croissant :\n{sorted_variations}")
 
 # ---- HISTOGRAMME THREE BEST --------------------------------
-    most_homogen_subjects = sorted_variations.index[:3]
-    print("\nmatières les plus homogènes =")
-    for i in most_homogen_subjects:
-        print(i)
-
-    # Définition de la grille de subplots
-    nb_homogen_subjects = len(most_homogen_subjects)
-    cols = 5  # Nombre de colonnes dans la mosaïque
-    rows = (nb_homogen_subjects // cols) + (nb_homogen_subjects % cols > 0)
-    fig, axes = plt.subplots(rows, cols, figsize=(10, 4), sharey=True)
-    axes = axes.flatten()
-
-    # Créer des histogrammes pour chaque matière
-    for idx, subject in enumerate(most_homogen_subjects):
-        ax = axes[idx]
-
-        # Histogrammes empilés par maison pour chaque plage de notes
-        bins = np.linspace(0, 100, 11)  # Plages de notes de 10 en 10
-
-        # Parcourir chaque maison
-        for house, color in house_colors_new.items():
-            house_data = norm_data[norm_data[house_col] == house][subject]
-            ax.hist(
-                house_data, bins=bins, alpha=0.5,
-                label=house, color=color, edgecolor="black",
-                )
-
-        # Configuration du graphique
-        ax.set_title(subject)
-        ax.set_xlabel("Plages de notes (%)")
-        ax.set_ylabel("Nombre d'élèves")
-
-    # Supprimer les axes vides (si le nb de matières ne remplit pas la grille)
-    for j in range(idx + 1, len(axes)):
-        fig.delaxes(axes[j])
-
-    # Légende et affichage
-    fig.suptitle("Distribution des notes des 3 matières les plus homogènes")
-    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Ajuste la disposition
-    plt.legend(title="Maison", loc="center right", bbox_to_anchor=(2.5, 0.5))
-    fig.canvas.mpl_connect("key_press_event", close_on_enter)
-    plt.savefig("hist_threebest.png")
-    plt.show()
-# ---- HISTOGRAMME THREE BEST FIN ----------------------------
+    hist_mosaique(sorted_variations, house_colors_new, norm_data, house_col)
 
 # ---- HISTOGRAMME UNIQUE ------------------------------------
-    best_subject = sorted_variations.index[0]
-    print(f"\nmatière la plus homogène =\n{best_subject}")
-
-    plt.figure(figsize=(10, 6))
-
-    # Histogramme empilé par maison
-    bins = np.linspace(0, 100, 11)  # Plages de notes de 10 en 10
-
-    # Parcourir chaque maison
-    for house, color in house_colors_new.items():
-        house_data = norm_data[norm_data[house_col] == house][best_subject]
-        plt.hist(
-            house_data, bins=bins, alpha=0.5,
-            label=house, color=color, edgecolor="black",
-            )
-
-    # Légende
-    plt.title(f"Distribution des notes - {best_subject}")
-    plt.xlabel("Plages de notes (%)")
-    plt.ylabel("Nombre d'élèves")
-    plt.legend(title="Maison")
-    plt.grid(axis="y", linestyle="--", alpha=0.7)
-
-    # Affichage
-    plt.tight_layout()
-    fig = plt.gcf()
-    fig.canvas.mpl_connect("key_press_event", close_on_enter)
-    plt.savefig("hist_unique.png")
-    plt.show()
-
-
-def load(path: str) -> pd.DataFrame:
-    """Load a file.csv and return a dataset."""
-    try:
-        data_read = pd.read_csv(path)
-    except FileNotFoundError:
-        print(f"Error: The file {path} was not found.")
-        return None
-    except pd.errors.ParserError:
-        print(f"Error: The file {path} is corrupted.")
-        return None
-    except MemoryError:
-        print(f"Error: The file {path} is too large to fit into memory.")
-        return None
-    except IOError:
-        print(f"Error: Unable to open the file at path {path}.")
-        return None
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        return None
-
-    data = pd.DataFrame(data_read)
-
-    lines, col = data.shape
-    print(f"Loading dataset of dimensions ({lines}, {col})\n")
-
-    return data
-
-
-def extract_tgz(tgz_file: str, dir_path: str) -> pd.DataFrame:
-    """Décompresse un fichier.tgz dans le répertoire.
-
-    :param tgz_file : le chemin du fichier.tgz à décompresser
-    :param dir_path : le répertoire où décompresser le fichier.
-    """
-    try:
-        with tarfile.open(tgz_file) as tar:
-            tar.extractall(path=dir_path)
-            print(f"Fichier {tgz_file} décompressé dans répertoire {dir_path}")
-    except Exception as e:
-        print(f"Erreur lors de la décompression de {tgz_file}: {e}")
-        sys.exit(1)
-
-
-def find_file(filename: str, dir_path: str):
-    """Recherche récursive d'un fichier dans le répertoire donné.
-
-    :param filename: Nom du fichier à rechercher (ex: 'dataset.csv')
-    :param dir_path: Répertoire où commencer la recherche
-    :return: Chemin complet vers le fichier s'il est trouvé, sinon None
-    """
-    for root, dir, files in os.walk(dir_path):
-        if filename in files:
-            return os.path.join(root, filename)
-
-    # si le fichier n'est pas trouvé
-    return None
+    hist_best_subject(sorted_variations, house_colors_new, norm_data, house_col)
 
 
 def main() -> None:
