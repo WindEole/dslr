@@ -30,11 +30,11 @@ def close_on_enter(event: any) -> None:
 
 
 def hist_best_subject(
-    sorted_variations: pd.DataFrame,
-    house_colors_new: dict,
-    norm_data: pd.DataFrame,
-    house_col: str,
-    ) -> None:
+        sorted_variations: pd.DataFrame,
+        house_colors_new: dict,
+        norm_data: pd.DataFrame,
+        house_col: str,
+        ) -> None:
     best_subject = sorted_variations.index[0]
     print(f"\nmatière la plus homogène =\n{best_subject}")
 
@@ -52,18 +52,14 @@ def hist_best_subject(
         counts, _ = np.histogram(house_data, bins=bins)
 
         # Conversion en pourcentage
-        total_students = len(house_data)
-        percentages = (counts / total_students) * 100 if total_students > 0 else counts
+        total_stud = len(house_data)
+        percentages = (counts / total_stud) * 100 if total_stud > 0 else counts
 
         # Tracer l'histogramme en mode barres empilées
         plt.bar(
             bins[:-1], percentages, width=np.diff(bins), align="edge",
             label=house, color=color, edgecolor="black", alpha=0.5,
         )
-        # plt.hist(
-        #     house_data, bins=bins, alpha=0.5,
-        #     label=house, color=color, edgecolor="black",
-        #     )
 
     # Légende
     plt.title(f"Distribution des notes - {best_subject} (en %)")
@@ -76,26 +72,26 @@ def hist_best_subject(
     plt.tight_layout()
     fig = plt.gcf()
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
-    plt.savefig("hist_percentage.png")
+    plt.savefig("./SaveGraph/hist_best_perc.png")
     plt.show()
 
 
 def hist_mosaique(
-    subjects: any,
-    house_colors_new: dict,
-    norm_data: pd.DataFrame,
-    house_col: str,
-    ) -> None:
+        subjects: any,
+        house_colors_new: dict,
+        norm_data: pd.DataFrame,
+        house_col: str,
+        ) -> None:
     """Visualise les données en histogramme mosaïque."""
     title1 = "Distribution des notes par matière et par maison"
-    title2 = "hist_mosaique_perc.png"
+    title2 = "./SaveGraph/hist_mosaique_perc.png"
     if isinstance(subjects, pd.DataFrame):
         subjects = subjects.index[:3]
         print("\nmatières les plus homogènes =")
         for i in subjects:
             print(i)
         title1 = "Distribution des notes des 3 matières les plus homogènes"
-        title2 = "hist_threebest.png"
+        title2 = "./SaveGraph/hist_threebest_perc.png"
 
     # Définition de la grille de subplots
     num_subjects = len(subjects)
@@ -117,20 +113,16 @@ def hist_mosaique(
 
             # Calcul de l'histogramme
             counts, _ = np.histogram(house_data, bins=bins)
-            total_students = len(house_data)
+            n_stud = len(house_data)
 
             # Conversion en pourcentage
-            percentages = (counts / total_students * 100) if total_students > 0 else counts
+            percentages = (counts / n_stud * 100) if n_stud > 0 else counts
 
             # Tracer les barres empilées
             ax.bar(
                 bins[:-1], percentages, width=np.diff(bins), align="edge",
                 label=house, color=color, edgecolor="black", alpha=0.5,
             )
-            # ax.hist(
-            #     house_data, bins=bins, alpha=0.5,
-            #     label=house, color=color, edgecolor="black",
-            #     )
 
         # Configuration du graphique
         ax.set_title(subject)
@@ -374,7 +366,7 @@ def viz_histogram(data: pd.DataFrame) -> None:
     plt.tight_layout()
     fig = plt.gcf()  # On obtient le graphe en cours
     fig.canvas.mpl_connect("key_press_event", close_on_enter)
-    plt.savefig("hist_percentile.png")
+    plt.savefig("./SaveGraph/hist_percentile.png")
     plt.show()
 # ----- HISTOGRAMME GENERAL FIN ------------------------------
 
@@ -440,14 +432,14 @@ def viz_histogram(data: pd.DataFrame) -> None:
     })
     # print(f"\nVariation metrics = \n{variation_metrics}")
 
-    sorted_variations = variation_metrics.sort_values(by="Std_Dev")
-    # print(f"\nvariations metrics triées croissant :\n{sorted_variations}")
+    sorted_var = variation_metrics.sort_values(by="Std_Dev")
+    # print(f"\nvariations metrics triées croissant :\n{sorted_var}")
 
 # ---- HISTOGRAMME THREE BEST --------------------------------
-    hist_mosaique(sorted_variations, house_colors_new, norm_data, house_col)
+    hist_mosaique(sorted_var, house_colors_new, norm_data, house_col)
 
 # ---- HISTOGRAMME UNIQUE ------------------------------------
-    hist_best_subject(sorted_variations, house_colors_new, norm_data, house_col)
+    hist_best_subject(sorted_var, house_colors_new, norm_data, house_col)
 
 
 def main() -> None:
