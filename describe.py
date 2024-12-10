@@ -87,8 +87,10 @@ def ft_std(val: any) -> float:
         raise TypeError("Input must be a DataFrame or DataFrameGroupBy")
 
 
-def ft_max(val: any) -> float:
-    """Determine the maximum value in a dataframe."""
+def ft_max(val: any, key=None) -> float:
+    print(val)
+    print(key)
+    """Determine the maximum value in a dataframe, series or dictionary."""
     if isinstance(val, pd.DataFrame):
         max_values = {}
         for col in val.columns:
@@ -110,8 +112,32 @@ def ft_max(val: any) -> float:
                     tmp_max = value
             return tmp_max
         return None  # S'il n'y a pas de valeurs non-nulles
+    elif isinstance(val, dict):
+        # Si un dictionnaire est fourni
+        if not val:  # Vérifie si le dictionnaire est vide
+            return None
+        # Initialisation avec la première paire clé-valeur non None
+        iterator = ((k, v) for k, v in val.items() if v is not None)
+        try:
+            tmp_max_key, tmp_max_value = next(iterator)  # Première clé-valeur
+            # print(f"Initial max: {tmp_max_key} with score {tmp_max_value}")
+            tmp_max_value = key(tmp_max_value) if key else tmp_max_value  # Applique la clé si elle existe
+            # print(f"tmp_max_value = {tmp_max_value}")
+        except StopIteration:
+            return None  # Tous les éléments sont None
+
+        # Parcours des autres éléments
+        for k, v in val.items():
+            if v is None:  # Ignore les valeurs None
+                continue
+            compare_value = key(v) if key is not None else v
+            # print(f"Comparing {compare_value} with {tmp_max_value}")
+            if compare_value is not None and compare_value > tmp_max_value:
+                tmp_max_value = compare_value
+                tmp_max_key = k
+        return tmp_max_key
     else:
-        raise TypeError("Input must be a Series or DataFrame")
+        raise TypeError("Input must be a Series, DataFrame, or dictionary.")
 
 
 def ft_min(val: any) -> float:

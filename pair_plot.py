@@ -1,7 +1,8 @@
-"""Scatter plot program.
+"""Pair plot program.
 
 Ce programme ouvre un fichier de données compressées au format .tgz et
-génère une visualisation des données sous forme de nuage de points.
+génère une visualisation croisée des données, sous forme de nuage de points et
+d'histogrammes pour les données de la diagonale.
 """
 import re
 import sys
