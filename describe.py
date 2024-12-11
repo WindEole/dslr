@@ -61,10 +61,13 @@ def ft_std(val: any) -> float:
         for col in val.columns:
             non_null_values = val[col].dropna()
             if not non_null_values.empty:
-                diff_mean_val = non_null_values - mean[col]  # difference par rapport à la moyenne
+                diff_mean_val = non_null_values - mean[col]  # diff avec la moy
                 square_diff = diff_mean_val ** 2  # carré des différences
                 somme_square_diff = square_diff.sum()  # somme des carrés
-                variance = somme_square_diff / (count[col] - 1) if count[col] > 1 else 0  # diviser par count - 1
+                if count[col] > 1:  # ATTENTION : diviser par count - 1
+                    variance = somme_square_diff / (count[col] - 1)
+                else:
+                    variance = 0
                 std_values[col] = math.sqrt(variance)
             else:
                 std_values[col] = None
@@ -89,7 +92,7 @@ def ft_std(val: any) -> float:
 
 def ft_max(val: any) -> float:
     """Determine the maximum value in a dataframe, series or dictionary."""
-    if isinstance(val, pd.DataFrame):  #------------------- DATAFRAME
+    if isinstance(val, pd.DataFrame):  # ------------------ DATAFRAME
         max_values = {}
         for col in val.columns:
             non_null_values = val[col].dropna()
@@ -103,7 +106,7 @@ def ft_max(val: any) -> float:
                 max_values[col] = None
         return max_values
 
-    elif isinstance(val, pd.Series):  #----------------------- SERIES
+    elif isinstance(val, pd.Series):  # ---------------------- SERIES
         if not val.empty:  # s'il y a des valeurs non-nulles
             tmp_max = val.iloc[0]  # initialise avec la 1ière valeur
             for value in val.iloc[1:]:
@@ -112,7 +115,7 @@ def ft_max(val: any) -> float:
             return tmp_max
         return None  # S'il n'y a pas de valeurs non-nulles
 
-    elif isinstance(val, dict):  #------------------------ DICTIONARY
+    elif isinstance(val, dict):  # ----------------------- DICTIONARY
         # Si un dictionnaire est fourni
         if not val:  # Vérifie si le dictionnaire est vide
             return None
@@ -217,7 +220,7 @@ def ft_count(val: any) -> pd.DataFrame:
         }
         return pd.DataFrame(count_values).T
     else:
-        raise TypeError("Input must be a DataFrame or a DataFrameGroupBy object")
+        raise TypeError("Input must be DataFrame or DataFrameGroupBy object")
 
 
 def ft_describe(data: pd.DataFrame) -> pd.DataFrame:
