@@ -87,16 +87,14 @@ def ft_std(val: any) -> float:
         raise TypeError("Input must be a DataFrame or DataFrameGroupBy")
 
 
-def ft_max(val: any, key=None) -> float:
-    print(val)
-    print(key)
+def ft_max(val: any) -> float:
     """Determine the maximum value in a dataframe, series or dictionary."""
-    if isinstance(val, pd.DataFrame):
+    if isinstance(val, pd.DataFrame):  #------------------- DATAFRAME
         max_values = {}
         for col in val.columns:
             non_null_values = val[col].dropna()
             if not non_null_values.empty:
-                tmp_max = non_null_values.iloc[0]  # on initialise avec la première valeur
+                tmp_max = non_null_values.iloc[0]  # init avec la 1ère valeur
                 for value in non_null_values.iloc[1:]:
                     if value > tmp_max:
                         tmp_max = value
@@ -104,15 +102,17 @@ def ft_max(val: any, key=None) -> float:
             else:
                 max_values[col] = None
         return max_values
-    elif isinstance(val, pd.Series):
+
+    elif isinstance(val, pd.Series):  #----------------------- SERIES
         if not val.empty:  # s'il y a des valeurs non-nulles
-            tmp_max = val.iloc[0]  # on initialise avec la première valeur
+            tmp_max = val.iloc[0]  # initialise avec la 1ière valeur
             for value in val.iloc[1:]:
                 if value > tmp_max:
                     tmp_max = value
             return tmp_max
         return None  # S'il n'y a pas de valeurs non-nulles
-    elif isinstance(val, dict):
+
+    elif isinstance(val, dict):  #------------------------ DICTIONARY
         # Si un dictionnaire est fourni
         if not val:  # Vérifie si le dictionnaire est vide
             return None
@@ -120,19 +120,14 @@ def ft_max(val: any, key=None) -> float:
         iterator = ((k, v) for k, v in val.items() if v is not None)
         try:
             tmp_max_key, tmp_max_value = next(iterator)  # Première clé-valeur
-            # print(f"Initial max: {tmp_max_key} with score {tmp_max_value}")
-            tmp_max_value = key(tmp_max_value) if key else tmp_max_value  # Applique la clé si elle existe
-            # print(f"tmp_max_value = {tmp_max_value}")
         except StopIteration:
             return None  # Tous les éléments sont None
-
         # Parcours des autres éléments
-        for k, v in val.items():
+        for k, v in iterator:
             if v is None:  # Ignore les valeurs None
                 continue
-            compare_value = key(v) if key is not None else v
-            # print(f"Comparing {compare_value} with {tmp_max_value}")
-            if compare_value is not None and compare_value > tmp_max_value:
+            compare_value = v
+            if compare_value > tmp_max_value:
                 tmp_max_value = compare_value
                 tmp_max_key = k
         return tmp_max_key
