@@ -441,9 +441,26 @@ def find_file(filename: str, dir_path: str):
     :param dir_path: Répertoire où commencer la recherche
     :return: Chemin complet vers le fichier s'il est trouvé, sinon None
     """
-    for root, dir, files in os.walk(dir_path):
+    # Vérifier si le fichier existe avec un chemin absolu ou relatif
+    file_path = os.path.abspath(filename)
+    if os.path.isfile(file_path):
+        return file_path
+
+    # Sinon recherche récursive dans le répertoire spécifié
+    for root, dirs, files in os.walk(dir_path):
         if filename in files:
             return os.path.join(root, filename)
+
+    # Si le fichier n'est pas trouvé, chercher le fichier compressé
+    tgz_filename = "datasets.tgz"
+    tgz_path = os.path.join(dir_path, tgz_filename)
+    if os.path.isfile(tgz_path):
+        print(f"Fichier {tgz_filename} trouvé. Décompression en cours...")
+        extract_tgz(tgz_filename, dir_path)
+        # rechercher à nouveau le fichier.csv
+        for root, dirs, files in os.walk(dir_path):
+            if filename in files:
+                return os.path.join(root, filename)
 
     # si le fichier n'est pas trouvé
     return None
@@ -457,28 +474,18 @@ def main() -> None:
         sys.exit(1)
 
     filename = sys.argv[1]
-    dir_path = "./"
+    dir_path = os.getcwd()
     file_path = find_file(filename, dir_path)
 
     if not file_path:
-        tgz_file = find_file("datasets.tgz", dir_path)
-        if tgz_file:
-            print(f"Fichier {tgz_file} trouvé. Décompression en cours...")
-            extract_tgz(tgz_file, dir_path)
-            # rechercher à nouveau le fichier.csv
-            file_path = find_file(filename, dir_path)
-        else:
-            print(f"Erreur : fichier '{filename}' et fichier.tgz absents.")
-            sys.exit(1)
-
-    if file_path:
-        print(f"Fichier {filename} trouvé : {file_path}")
-        data = load(file_path)
-        if data is None:
-            sys.exit(1)
-        ft_describe(data)
-    else:
         print(f"Erreur : le fichier '{filename}' n'a pas été trouvé.")
+        sys.exit(1)
+
+    print(f"Fichier {filename} trouvé : {file_path}")
+    data = load(file_path)
+    if data is None:
+        sys.exit(1)
+    ft_describe(data)
 
 
 if __name__ == "__main__":

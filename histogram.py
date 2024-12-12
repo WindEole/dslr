@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 
 from describe import (
-    extract_tgz,
     find_file,
     ft_count,
     ft_max,
@@ -454,31 +453,21 @@ def main() -> None:
     file_path = find_file(filename, dir_path)
 
     if not file_path:
-        tgz_file = find_file("datasets.tgz", dir_path)
-        if tgz_file:
-            print(f"Fichier {tgz_file} trouvé. Décompression en cours...")
-            extract_tgz(tgz_file, dir_path)
-            # rechercher à nouveau le fichier.csv
-            file_path = find_file(filename, dir_path)
-        else:
-            print(f"Erreur : fichier '{filename}' et fichier.tgz absents.")
-            sys.exit(1)
-
-    if file_path:
-        print(f"Fichier {filename} trouvé : {file_path}")
-        data = load(file_path)
-        if data is None:
-            sys.exit(1)
-        try:
-            viz_histogram(data)
-        except KeyboardInterrupt:
-            print("\nInterruption du programme par l'utilisateur (Ctrl + C)")
-            plt.close("all")  # Ferme tous les graphes ouverts
-            sys.exit(0)  # Sort proprement du programme
-        except ValueError as e:
-            print(e)
-    else:
         print(f"Erreur : le fichier '{filename}' n'a pas été trouvé.")
+        sys.exit(1)
+
+    print(f"Fichier {filename} trouvé : {file_path}")
+    data = load(file_path)
+    if data is None:
+        sys.exit(1)
+    try:
+        viz_histogram(data)
+    except KeyboardInterrupt:
+        print("\nInterruption du programme par l'utilisateur (Ctrl + C)")
+        plt.close("all")  # Ferme tous les graphes ouverts
+        sys.exit(0)  # Sort proprement du programme
+    except ValueError as e:
+        print(e)
 
 
 if __name__ == "__main__":

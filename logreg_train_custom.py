@@ -35,7 +35,7 @@ from scatter_plot import calculate_correlation
 
 
 def save_results(
-        model: LogisticRegression,
+        model,
         features: list,
         class_names: list,
         file_path: str,
@@ -76,6 +76,34 @@ def save_results(
         json.dump(result, file, indent=4)
 
     print(f"Coefficients et statistiques sauvegardés dans '{file_path}'")
+
+
+def sigmoid(z):
+    """Convertir la sortie linéaire en probabilité 0 à 1."""
+    return 1 / ( 1 + np.exp(-z))
+
+
+def compute_cost(X, y, beta):
+    m = len(y)
+    z = np.dot(X, beta)
+    h = sigmoid(z)
+    cost = -(1 / m) * np.sum(y * np.log(h) + (1 - y) * np.log(1 - h))
+    return cost
+
+
+def gradient_descent(X, y, beta, learning_rate, iterations):
+    m = len(y)
+    for _ in range(iterations):
+        z = np.dot(X, beta)
+        h = sigmoid(z)
+        gradient = (1 / m) * np.dot(X.T, (h - y))
+        beta -= learning_rate * gradient
+    return beta
+
+
+def predict(X, beta, threshold=0.5):
+    probabilities = sigmoid(np.dot(X, beta))
+    return (probabilities >= threshold).astype(int)
 
 
 def handle_missing_values(
@@ -123,43 +151,40 @@ def handle_missing_correlated_values(data: pd.DataFrame) -> pd.DataFrame:
     if high_corr.empty:
         print("Aucune paire de variables avec corrélation élevée.")
         return data
-
-    col_a = high_corr.iloc[0]["Variable 1"]
-    col_b = high_corr.iloc[0]["Variable 2"]
-    print(f"{col_a} || {col_b}")
-    missing_data_rows = data[data[[col_a, col_b]].isna().any(axis=1)]
-    print("Lignes avec des valeurs manquantes: ")
-    print(missing_data_rows[[col_a, col_b]])
-    data_cleaned = data.dropna(subset=[col_a, col_b])
-    # Determination du facteur de multiplication:
-    x = data_cleaned[col_a]
-    y = data_cleaned[col_b]
-    slope, intercept = np.polyfit(x, y, 1)
-    print(f"Facteur multiplicateur: {slope}")
-    # impute col_a using col_b
-    data[col_a] = data.apply(
-        lambda row: row[col_b] / slope if pd.isna(row[col_a]) and not pd.isna(row[col_b]) else row[col_a],
-        axis=1,
-    )
-    # impute col_b using col_a
-    data[col_b] = data.apply(
-        lambda row: row[col_a] * slope if pd.isna(row[col_b]) and not pd.isna(row[col_a]) else row[col_b],
-        axis=1,
-    )
-    # print(data[[col_a, col_b]])
+    else:
+        col_a = high_corr.iloc[0]["Variable 1"]
+        col_b = high_corr.iloc[0]["Variable 2"]
+        print(f"{col_a} || {col_b}")
+        missing_data_rows = data[data[[col_a, col_b]].isnull().any(axis=1)]
+        print("Lignes avec des valeurs manquantes: ")
+        print(missing_data_rows[[col_a, col_b]])
+        data_cleaned = data.dropna(subset=[col_a, col_b])
+        # Determination du facteur de multiplication:
+        x = data_cleaned[col_a]
+        y = data_cleaned[col_b]
+        slope, intercept = np.polyfit(x, y, 1)
+        print(f"Facteur multiplicateur: {slope}")
+        # impute col_a using col_b
+        data[col_a] = data.apply(
+            lambda row: row[col_b] / slope if pd.isna(row[col_a]) and not pd.isna(row[col_b]) else row[col_a],
+            axis=1,
+        )
+        # impute col_b using col_a
+        data[col_b] = data.apply(
+            lambda row: row[col_a] * slope if pd.isna(row[col_b]) and not pd.isna(row[col_a]) else row[col_b],
+            axis=1,
+        )
+        # print(data[[col_a, col_b]])
     return data
 
 
-def calculate_median(data: pd.DataFrame) -> dict:
-    """Calculate median (equal to percentile 50)."""
+def calculate_median(data:pd.DataFrame):
     # On sélectionne uniquement les colonnes numériques
     num_data = data.select_dtypes(include=["number"])
-
     # On vérifie s'il y a des colonnes numériques dans le dataFrame
     if num_data.empty:
         print("Aucune colonne numérique dans les données.")
-        return None
-
+        return
     # COUNT = nb d'observations non nulles
     count_values = ft_count(num_data)
     median = {}
@@ -167,16 +192,15 @@ def calculate_median(data: pd.DataFrame) -> dict:
         # Exclure les valeurs nulles pour le calcul du min
         non_null_values = num_data[~num_data[col].isna()][col]
         median[col] = ft_percentile(50, non_null_values, count_values[col])
-    # print(median)
+    print(median)
     return median
 
 
-def logistic_regression(data: pd.DataFrame) -> None:
+def logistic_regression(data: pd.DataFrame):
     """Fonction de régression logistique de type one-vs-all.
 
     Effectue une régression logistique One-vs-All pour classer les étudiants
     en fonction de leurs scores dans 4 matières principales.
-    Utilise la bibliothèque sci-kit learn.
     """
     # On cherche une colonne contenant House, avec des variantes
     house_col = None
@@ -187,56 +211,43 @@ def logistic_regression(data: pd.DataFrame) -> None:
 
     # Si aucune colonne "House" n'est trouvée, on lève une erreur
     if house_col is None:
-        msg = "Aucune colonne 'House' n'a éte trouvée"
-        raise ValueError(msg)
+        raise ValueError("Aucune colonne 'House' n'a éte trouvée")
 
+    # high_corr = calculate_correlation(data, 0.9)
     data = handle_missing_correlated_values(data)
-    mean_val = ft_mean(data.select_dtypes(
-        include=["number"]).drop(["Index"], axis=1, errors="ignore"),
-        )
+    mean_val = ft_mean(data.select_dtypes(include=["number"]).drop(["Index"], axis=1, errors="ignore"))
     median_val = calculate_median(data)
     data = handle_missing_values(data, mean_val, median_val)
 
     # Sélection des matières et de la cible
-    # subjects = ["Herbology", "Defense Against the Dark Arts", "Astronomy", "Ancient Runes"]
-    subjects = [
-        col for col in data.columns
-        if pd.api.types.is_numeric_dtype(data[col]) and col.lower() != "index"
-    ]
+    subjects = ["Herbology", "Defense Against the Dark Arts", "Astronomy", "Ancient Runes"]
+    # subjects = ["Herbology", "Defense Against the Dark Arts", "Astronomy", "Ancient Runes", "Divination", "History of Magic", "Charms", "Muggle Studies", "Arithmancy", "Transfiguration", "Potions", "Care of Magical Creatures", "Flying"]
     if not all(subject in data.columns for subject in subjects + [house_col]):
-        msg = "Les colonnes nécessaires sont absentes."
-        raise ValueError(msg)
+        raise ValueError("Les colonnes nécessaires (Herbology, Defense Against the Dark Arts, Astronomy, Ancient Runes, House) sont absentes.")
 
-    x = data[subjects]
+    X = data[subjects]
     y = data[house_col]
 
     # Normalisation des données pour une meilleure convergence
-    x_scaled = normalize_data(x)
+    X_scaled = normalize_data(X)
 
     # Division des données en ensembles d'entraînement et de test
-    x_train, x_test, y_train, y_test = train_test_split(
-        x_scaled, y,
-        test_size=0.3, random_state=42,
-        )
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42)
 
     # Régression logistique One-vs-All
-    model = LogisticRegression(
-        multi_class="ovr",
-        max_iter=1000,
-        random_state=42,
-        )
-    model.fit(x_train, y_train)
+    model = LogisticRegression(multi_class="ovr", max_iter=1000, random_state=42)
+    model.fit(X_train, y_train)
 
     # Évaluation
-    y_pred = model.predict(x_test)
+    y_pred = model.predict(X_test)
     print("Rapport de classification :")
     print(classification_report(y_test, y_pred))
     print(f"Accuracy : {accuracy_score(y_test, y_pred):.2f}")
 
     # Sauvegarde des coefficients
-    features = x.columns.tolist()
+    features = X.columns.tolist()
     class_names = model.classes_.tolist()
-    save_results(model, features, class_names, "logreg_coeff.json", x)
+    save_results(model, features, class_names, "logreg_coeff.json", X)
 
 
 def main() -> None:
@@ -258,13 +269,14 @@ def main() -> None:
     data = load(file_path)
     if data is None:
         sys.exit(1)
-    # print(data)
-
+    print(data)
     try:
+        # data_cleaned = data.dropna()
+        print(len(data))
         logistic_regression(data)
     except KeyboardInterrupt:
         print("\nInterruption du programme par l'utilisateur (Ctrl + C)")
-        sys.exit(0)
+        sys.exit(0)  # Sort proprement du programme
     except ValueError as e:
         print(e)
 

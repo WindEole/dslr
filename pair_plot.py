@@ -12,7 +12,6 @@ import pandas as pd
 import seaborn as sns
 
 from describe import (
-    extract_tgz,
     find_file,
     load,
 )
@@ -36,7 +35,8 @@ def viz_pairplot(data: pd.DataFrame) -> None:
 
     # Si aucune colonne "House" n'est trouvée, on lève une erreur
     if house_col is None:
-        raise ValueError("Aucune colonne 'House' n'a éte trouvée")
+        msg = "Aucune colonne 'House' n'a éte trouvée"
+        raise ValueError(msg)
 
     # Supprimer les lignes contenant des NaN
     data_cleaned = data.dropna()
@@ -108,31 +108,21 @@ def main() -> None:
     file_path = find_file(filename, dir_path)
 
     if not file_path:
-        tgz_file = find_file("datasets.tgz", dir_path)
-        if tgz_file:
-            print(f"Fichier {tgz_file} trouvé. Décompression en cours...")
-            extract_tgz(tgz_file, dir_path)
-            # rechercher à nouveau le fichier.csv
-            file_path = find_file(filename, dir_path)
-        else:
-            print(f"Erreur : fichier '{filename}' et fichier.tgz absents.")
-            sys.exit(1)
-
-    if file_path:
-        print(f"Fichier {filename} trouvé : {file_path}")
-        data = load(file_path)
-        if data is None:
-            sys.exit(1)
-        try:
-            viz_pairplot(data)
-        except KeyboardInterrupt:
-            print("\nInterruption du programme par l'utilisateur (Ctrl + C)")
-            plt.close("all")  # Ferme tous les graphes ouverts
-            sys.exit(0)  # Sort proprement du programme
-        except ValueError as e:
-            print(e)
-    else:
         print(f"Erreur : le fichier '{filename}' n'a pas été trouvé.")
+        sys.exit(1)
+
+    print(f"Fichier {filename} trouvé : {file_path}")
+    data = load(file_path)
+    if data is None:
+        sys.exit(1)
+    try:
+        viz_pairplot(data)
+    except KeyboardInterrupt:
+        print("\nInterruption du programme par l'utilisateur (Ctrl + C)")
+        plt.close("all")  # Ferme tous les graphes ouverts
+        sys.exit(0)  # Sort proprement du programme
+    except ValueError as e:
+        print(e)
 
 
 if __name__ == "__main__":

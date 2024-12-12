@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 
 from describe import (
-    extract_tgz,
     find_file,
     ft_mean,
     ft_std,
@@ -27,7 +26,7 @@ def close_on_enter(event: any) -> None:
 
 
 def extract_high_corr(
-        corr_matrix: pd.DataFrame, threshold: float = 0.8) -> pd.DataFrame:
+        corr_matrix: pd.DataFrame, threshold: float) -> pd.DataFrame:
     """Extract pairs of columns whose correlation is near 1 or -1.
 
     Argument:
@@ -69,6 +68,31 @@ def ft_corr(data: pd.DataFrame) -> pd.DataFrame:
     return corr_matrix
 
 
+def calculate_correlation(data: pd.DataFrame, threshold: float) -> pd.DataFrame:
+    """Calculate correlation between subjects et returns the best.
+
+    Param:
+        data: original data (raw)
+        threshold: seuil pour déterminer les meilleures correlations
+    Return: un DataFrame des matières les plus correlées.
+    """
+    # Supprimer les lignes contenant des NaN
+    data_cleaned = data.dropna()
+    # Normalisation des données
+    data_norm = normalize_data(data_cleaned)
+    # Sélectionner les colonnes de données numériques (drop index)
+    features = data_norm.select_dtypes(
+        include=["number"]).drop(columns=["Index"],
+                                 errors="ignore")
+    # Reproduction de la méthode .corr()
+    corr_matrix = ft_corr(features)
+    # print(f"\nmethode corr: \n{features.corr()}")
+    print(f"\nmethode corr custom: \n{corr_matrix}")
+    high_corr = extract_high_corr(corr_matrix, threshold)
+    print(f"\nHigh correlation pair :\n{high_corr}")
+    return high_corr
+
+
 def viz_scatterplot(data: pd.DataFrame) -> None:
     """Représente les données sous forme d'histogramme."""
     # On cherche une colonne contenant House, avec des variantes
@@ -85,7 +109,7 @@ def viz_scatterplot(data: pd.DataFrame) -> None:
     print(house_col)
 
     house_counts = data[house_col].value_counts()
-    print("Effectifs par maison :\n")
+    print("\nEffectifs par maison :")
     for maison, count in house_counts.items():
         print(f"{maison}: {count}")
 
@@ -94,12 +118,12 @@ def viz_scatterplot(data: pd.DataFrame) -> None:
     # Normalisation des données
     subjects_norm = normalize_data(data_cleaned)
 
-    # Sélectionner les colonnes de données numériques (drop index)
-    features = subjects_norm.select_dtypes(
-        include=["number"]).drop(columns=["Index"],
-                                 errors="ignore")
+    # # Sélectionner les colonnes de données numériques (drop index)
+    # features = subjects_norm.select_dtypes(
+    #     include=["number"]).drop(columns=["Index"],
+    #                              errors="ignore")
 
-    print(f"\nfeatures normalisees =\n{features}")
+    # print(f"\nfeatures normalisees =\n{features}")
 
     # Dico des couleurs pour chaque maison
     house_colors = {
@@ -118,12 +142,7 @@ def viz_scatterplot(data: pd.DataFrame) -> None:
     for subject in subjects:
         norm_data[subject] = round(subjects_norm[subject] * 100, 2)
 
-    # Reproduction de la méthode .corr()
-    corr_matrix = ft_corr(features)
-    # print(f"\nmethode corr: \n{features.corr()}")
-    print(f"\nmethode corr custom: \n{corr_matrix}")
-    high_corr = extract_high_corr(corr_matrix)
-    print(f"\nHigh correlation pair :\n{high_corr}")
+    high_corr = calculate_correlation(data, 0.8)
 
     if high_corr.empty:
         print("Aucune paire de variables avec une corrélation élevée trouvée.")
@@ -219,31 +238,21 @@ def main() -> None:
     file_path = find_file(filename, dir_path)
 
     if not file_path:
-        tgz_file = find_file("datasets.tgz", dir_path)
-        if tgz_file:
-            print(f"Fichier {tgz_file} trouvé. Décompression en cours...")
-            extract_tgz(tgz_file, dir_path)
-            # rechercher à nouveau le fichier.csv
-            file_path = find_file(filename, dir_path)
-        else:
-            print(f"Erreur : fichier '{filename}' et fichier.tgz absents.")
-            sys.exit(1)
-
-    if file_path:
-        print(f"Fichier {filename} trouvé : {file_path}")
-        data = load(file_path)
-        if data is None:
-            sys.exit(1)
-        try:
-            viz_scatterplot(data)
-        except KeyboardInterrupt:
-            print("\nInterruption du programme par l'utilisateur (Ctrl + C)")
-            plt.close("all")  # Ferme tous les graphes ouverts
-            sys.exit(0)  # Sort proprement du programme
-        except ValueError as e:
-            print(e)
-    else:
         print(f"Erreur : le fichier '{filename}' n'a pas été trouvé.")
+        sys.exit(1)
+
+    print(f"Fichier {filename} trouvé : {file_path}")
+    data = load(file_path)
+    if data is None:
+        sys.exit(1)
+    try:
+        viz_scatterplot(data)
+    except KeyboardInterrupt:
+        print("\nInterruption du programme par l'utilisateur (Ctrl + C)")
+        plt.close("all")  # Ferme tous les graphes ouverts
+        sys.exit(0)  # Sort proprement du programme
+    except ValueError as e:
+        print(e)
 
 
 if __name__ == "__main__":
