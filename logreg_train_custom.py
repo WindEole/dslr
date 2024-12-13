@@ -23,9 +23,7 @@ from sklearn.metrics import accuracy_score, classification_report
 from describe import (
     find_file,
     ft_count,
-    ft_max,
     ft_mean,
-    ft_min,
     ft_percentile,
     ft_std,
     load,
@@ -91,18 +89,18 @@ def save_results(
 
 def sigmoid(z: np.ndarray) -> np.ndarray:
     """Convertit la sortie linéaire en probabilité 0 à 1(fct sigmoïde)."""
-    return 1 / ( 1 + np.exp(-z))
+    return 1 / (1 + np.exp(-z))
 
 
 def compute_cost(h: np.ndarray, y: np.ndarray) -> np.float64:
     """Réalise la fonction de coût pour la régression logistique."""
     m = y.size
-    cost = -(1 / m) * (np.dot(y,np.log(h)) + np.dot(1 - y, np.log(1 - h)))
+    cost = -(1 / m) * (np.dot(y, np.log(h)) + np.dot(1 - y, np.log(1 - h)))
     return cost
 
 
 def gradient_descent(
-        x:np.ndarray,
+        x: np.ndarray,
         y: np.ndarray,
         theta: float,
         bias: float,
@@ -126,7 +124,7 @@ def gradient_descent(
         bias -= learning_rate * d_bias
 
         # Calcul et affichage du coût
-        if i% 100 == 0:
+        if i % 100 == 0:
             cost = compute_cost(predictions, y)
             print(f"Iteration {i}: Cost {cost}")
     return theta, bias
@@ -163,6 +161,7 @@ def logistic_regression_binary(
     # On retourne un dico
     return {"theta": theta, "bias": bias}
 
+
 def logistic_regression_ova(
         x: np.ndarray,
         y: np.ndarray,
@@ -178,6 +177,7 @@ def logistic_regression_ova(
         model = logistic_regression_binary(x, binary_y, learning_rate, num_iter)
         models.append(model)
     return models
+
 
 def standardize(df: pd.DataFrame) -> pd.DataFrame:
     """Standardise les colonnes d'un DataFrame autour de l'axe 0."""
@@ -233,7 +233,7 @@ def encoding_label(y: pd.Series) -> pd.Series:
     return y_encoded
 
 
-def calculate_median(data:pd.DataFrame) -> dict:
+def calculate_median(data: pd.DataFrame) -> dict:
     """Calculate median (equal to percentile 50)."""
     # On sélectionne uniquement les colonnes numériques
     num_data = data.select_dtypes(include=["number"])
@@ -259,22 +259,21 @@ def handle_missing_values(data: pd.DataFrame) -> pd.DataFrame:
     Si les données sont sym (skewness ~ 0): on remplace les Nan par la moyenne.
     Si elles sont asym: on remplace par la médiane (=percentile 50).
     """
-    mean_val = ft_mean(data.select_dtypes(include=["number"]).drop(["Index"], axis=1, errors="ignore"))
+    mean_val = ft_mean(data.select_dtypes(include=["number"]).drop(
+        ["Index"], axis=1, errors="ignore",
+        ))
     median_val = calculate_median(data)
     # Traitement de l'a/symétrie
     for column in data.columns:
         if pd.api.types.is_numeric_dtype(data[column]):
             skewness = data[column].skew()
-            # print(f"Asymétrie pour '{column}': {skewness:.2f}")
 
             # Remplacement des valeurs manquantes selon l'asymétrie
             if -0.5 <= skewness <= 0.5:
-                # print(f"'{column}' est symétrique. Remplacer par la moyenne.")
                 for col, mean_value in mean_val.items():
                     if mean_value is not None:
                         data.fillna({col: mean_value}, inplace=True)
             else:
-                # print(f"'{column}' est asymétrique. Remplacer par la médiane.")
                 for col, median_value in median_val.items():
                     if median_value is not None:
                         data.fillna({col: median_value}, inplace=True)
@@ -358,11 +357,8 @@ def logistic_regression(data: pd.DataFrame) -> None:
     x_df = data[subjects]  # -> FEATURES (DataFrame)
     y_ser = data[house_col]  # -> LABELS (Series)
 
-    # Normalisation des données pour une meilleure convergence
-    # x_scaled = normalize_data(x_df)
-
     # Encodage des étiquettes de y : chq Maison est représentée par un numero
-    y= encoding_label(y_ser)
+    y = encoding_label(y_ser)
 
     # On passe les données à numpy (calculs plus rapides)
     x = x_df.to_numpy()
