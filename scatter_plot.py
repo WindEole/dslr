@@ -87,9 +87,9 @@ def calculate_correlation(data: pd.DataFrame, threshold: float) -> pd.DataFrame:
     # Reproduction de la méthode .corr()
     corr_matrix = ft_corr(features)
     # print(f"\nmethode corr: \n{features.corr()}")
-    print(f"\nmethode corr custom: \n{corr_matrix}")
+    # print(f"\nmethode corr custom: \n{corr_matrix}")
     high_corr = extract_high_corr(corr_matrix, threshold)
-    print(f"\nHigh correlation pair :\n{high_corr}")
+    # print(f"\nHigh correlation pair :\n{high_corr}")
     return high_corr
 
 
